@@ -78,12 +78,9 @@ class GameBoardPygame:
         self.max_elixir = 999
         self.elixir_regen_rate = 2.0 
 
-        # =========================================================
-        # NOUVELLE ÉCONOMIE : Gestion dynamique du coût
-        self.unit_cost = 10                   # Le coût minimum (Soft Cap)
-        self.cost_increment = 10               # Le malus cumulatif (+10, +20, +30...)
-        self.last_cost_reduction = time.time() # Chronomètre pour la baisse par seconde
-        # =========================================================
+        self.unit_cost = 10                  
+        self.cost_increment = 10              
+        self.last_cost_reduction = time.time() 
 
         self.last_elixir_update = time.time()
 
@@ -91,7 +88,7 @@ class GameBoardPygame:
         self.damage_interval = 1.0 
         self.tower_damage = 10
         self.visual_attacks = []
-        self.player_barriers = [] # Pièges du Firewall
+        self.player_barriers = [] 
 
         self.player_deck = self._load_deck()
         self.available_deck = list(self.player_deck)
@@ -121,17 +118,13 @@ class GameBoardPygame:
         ui_center_x = self.SIDEBAR_WIDTH + (self.screen_width - self.SIDEBAR_WIDTH) // 2
         ui_center_y = self.screen_height - (self.BOTTOM_BAR_HEIGHT // 2)
         
-        # On retire le "- 120" pour que le bouton utilise le centre exact de la zone de jeu
         self.add_unit_button = Button(f"Poser ({self.unit_cost})", (ui_center_x, ui_center_y), 
                                       self._place_random_unit, size=(200, 50))
         self.return_menu_button = Button("Retourner au menu", (self.screen_width//2, self.screen_height//2 + 80), self.quit_game, size=(250, 60))
         self.surrender_button = Button("Abandon", (self.screen_width - 100, 50), self.surrender, size=(120, 40), color=(200, 50, 50))
 
-        # --- NOUVEAU : INITIALISATION DE LA LÉGENDE ---
         self._load_player_legend()
-        # On place l'icône de la légende juste à gauche du bouton "Poser"
         self.legend_rect = pygame.Rect(ui_center_x - 170, ui_center_y - 25, 50, 50)
-        # ----------------------------------------------
 
         self.dragging_unit = None    
         self.drag_origin = None       
@@ -143,36 +136,26 @@ class GameBoardPygame:
         self.time_between_waves = 30.0  
         self.wave_timer = 10.0 
 
-        # =========================================================
-        # NOUVEAU : États de synchronisation des vagues
-        self.wave_state = 'TIMER'      # Commence par le chrono de 10s
-        self.opponent_wave_state = 0   # 0 = En cours, 1 = Terminé
-        # =========================================================   
-        # # =========================================================
-        # NOUVEAU : Timer de sécurité
+        self.wave_state = 'TIMER'      
+        self.opponent_wave_state = 0  
         self.safety_timer = 0.0
-        # =========================================================    
         
         self.enemies_to_spawn = 0      
         self.spawn_interval = 1.5    
         self.last_spawn_time = 0     
 
-        # NOUVEAU : Chronomètre pour rafraîchir la grille adverse
         self.last_opponent_sync = time.time()
-        self.sync_interval = 0.5 # Vérifie toutes les demi-secondes 
+        self.sync_interval = 0.5
 
-        # NOUVEAU : Chronomètre pour synchroniser les Points de Vie
         self.last_hp_sync = time.time()
-        self.hp_sync_interval = 1.0 # Toutes les 1 seconde (c'est largement suffisant !)
+        self.hp_sync_interval = 1.0
 
-        # --- NOUVEAU : GESTION DE L'ABANDON ---
         self.confirm_surrender = False
         self.btn_confirm_yes = Button("Oui, j'abandonne", (self.screen_width // 2 - 110, self.screen_height // 2 + 50), 
                                       self._do_surrender, size=(200, 50), color=(200, 50, 50))
         self.btn_confirm_no = Button("Non, je reste", (self.screen_width // 2 + 110, self.screen_height // 2 + 50), 
                                      self._cancel_surrender, size=(200, 50), color=(50, 200, 50))
 
-        # NOUVEAU : Mémoire de notre dernière sauvegarde réussie en BDD
         self.last_confirmed_db_grid = [[None for _ in range(8)] for _ in range(4)]
          
     def _init_player_grid(self):
@@ -180,12 +163,10 @@ class GameBoardPygame:
         if db:
             try:
                 cursor = db.cursor()
-                # On vérifie si une grille existe déjà pour cette partie et cet utilisateur
                 check_query = "SELECT ID_Grid FROM player_grids WHERE ID_Game = %s AND ID_Users = %s"
                 cursor.execute(check_query, (self.id_game, self.user_id))
             
                 if not cursor.fetchone():
-                    # Structure par défaut : 4 lignes x 8 colonnes remplies de null
                     empty_grid = [[None for _ in range(8)] for _ in range(4)]
                     grid_json = json.dumps(empty_grid)
                 
@@ -221,7 +202,6 @@ class GameBoardPygame:
             except Exception as e:
                 print(f"Erreur chargement session : {e}")
             finally:
-                # ---> LA GARANTIE ANTI-CRASH <---
                 try: cursor.close()
                 except: pass
                 db.close()
@@ -238,10 +218,7 @@ class GameBoardPygame:
                 )
                 db.commit()
                 
-                # === LA CORRECTION EST ICI ===
-                # On met à jour la mémoire du radar SEULEMENT quand la BDD a bien reçu l'information !
                 self.last_confirmed_db_grid = grid_obj
-                # =============================
                 
             except Exception as e:
                 print(f"Erreur sauvegarde grille : {e}")
@@ -264,10 +241,9 @@ class GameBoardPygame:
                     grid_to_save[db_row][db_col] = {
                         "id": unit.get("id"),
                         "level": unit.get("level", 1),
-                        "merge_count": unit.get("merge_count", 0) # Sécurité supplémentaire pour garder le niveau
+                        "merge_count": unit.get("merge_count", 0) 
                     }
         
-        # On lance l'envoi à MySQL en secret, en lui passant aussi l'objet Python !
         grid_json = json.dumps(grid_to_save)
         threading.Thread(target=self._db_save_grid_thread, args=(grid_json, grid_to_save), daemon=True).start()
 
@@ -309,7 +285,6 @@ class GameBoardPygame:
             except Exception as e:
                 print(f"Erreur BDD fetch template: {e}")
             finally:
-                # --- NOUVEAU : GARANTIE DE FERMETURE ---
                 try: cursor.close()
                 except: pass
                 db.close()
@@ -331,21 +306,13 @@ class GameBoardPygame:
                 
                 if row and row[0]:
                     opp_grid = json.loads(row[0])
-
-                    # === LA CORRECTION EST ICI : LE NETTOYEUR ===
-                    # On vide la mémoire des anciennes positions avant de redessiner !
                     self.opponent_units_on_board.clear()
-                    # ============================================
                     
                     for r in range(4):
                         for c in range(8):
-                            # ===================================================
-                            # 1. LE MIROIR MATHÉMATIQUE (Inversion des axes)
-                            # ===================================================
-                            mirrored_r = 3 - r        # Inverse le Haut et le Bas
-                            mirrored_c = 7 - c        # Inverse la Gauche et la Droite
-                            py_col = mirrored_c + 1   # Le décalage de +1 pour votre grille
-                            # ===================================================
+                            mirrored_r = 3 - r       
+                            mirrored_c = 7 - c       
+                            py_col = mirrored_c + 1   
                             
                             raw_data = opp_grid[r][c]
                             
@@ -363,21 +330,13 @@ class GameBoardPygame:
                                     full_unit['merge_count'] = raw_data.get('merge_count', 0) 
                                     self._update_unit_stats(full_unit) 
                                     
-                                    # ===================================================
-                                    # 2. LE MIROIR VISUEL (L'image à l'envers)
-                                    # ===================================================
                                     if full_unit.get('image'):
-                                        # flip(image, flip_x, flip_y) -> True, True fait un 180° !
                                         full_unit['image'] = pygame.transform.flip(full_unit['image'], True, True)
-                                    # ===================================================
-                                    
-                                    # On place l'unité avec les NOUVELLES coordonnées miroir !
                                     self.opponent_units_on_board[(mirrored_r, py_col)] = full_unit
 
             except Exception as e:
                 print(f"Erreur de synchronisation avec l'adversaire : {e}")
             finally:
-                # --- NOUVEAU : GARANTIE DE FERMETURE ---
                 try: cursor.close()
                 except: pass
                 db.close()
@@ -388,7 +347,6 @@ class GameBoardPygame:
         if db:
             try:
                 cursor = db.cursor()
-                # On lit NOTRE propre grille
                 cursor.execute(
                     "SELECT Grid_State FROM player_grids WHERE ID_Game = %s AND ID_Users = %s", 
                     (self.game_id, self.user_id)
@@ -399,24 +357,18 @@ class GameBoardPygame:
                     import json
                     my_db_grid = json.loads(row[0])
                     
-                    # Sécurité si la mémoire n'est pas prête
                     if not hasattr(self, 'last_confirmed_db_grid'):
                         return
                         
                     towers_to_remove = []
                     
-                    # On compare la BDD actuelle avec NOTRE DERNIÈRE SAUVEGARDE RÉUSSIE
                     for r in range(4):
                         for c in range(8):
-                            # Si on SAIT qu'on avait réussi à sauvegarder une tour ici...
                             if self.last_confirmed_db_grid[r][c] is not None:
-                                # ...Mais que la base de données dit soudainement qu'elle a disparu...
                                 if my_db_grid[r][c] is None:
                                     towers_to_remove.append((r + 1, c + 1))
-                                    # On met à jour notre mémoire pour ne pas déclencher ça en boucle
                                     self.last_confirmed_db_grid[r][c] = None
                                     
-                    # On détruit visuellement les tours foudroyées !
                     for cell in towers_to_remove:
                         if cell in self.player_units_on_board:
                             del self.player_units_on_board[cell]
@@ -455,14 +407,11 @@ class GameBoardPygame:
                     self.enemies_to_spawn -= 1
                     self.last_spawn_time = current_time
             elif len(self.my_enemies) == 0:
-                # ÉTAPE 1 : On a fini la vague actuelle (ex: 1)
                 self.wave_state = 'WAITING'
-                # ÉTAPE 2 : On s'annonce prêt pour la suivante (ex: 2)
                 self.wave_number += 1
                 threading.Thread(target=self._update_db_wave, args=(self.wave_number,), daemon=True).start()
 
         elif state == 'WAITING':
-            # ÉTAPE 3 : On attend que l'adversaire s'annonce aussi prêt pour la même vague
             opp_wave = getattr(self, 'opponent_wave_db', 1)
             if opp_wave >= self.wave_number:
                 self.wave_state = 'TIMER'
@@ -494,42 +443,26 @@ class GameBoardPygame:
                 db.close()
 
     def start_next_wave(self):
-        # On passe en combat immédiatement
         self.wave_state = 'FIGHTING'
         
-        # Récompense (Basée sur la vague qu'on vient de terminer, donc wave_number - 1)
         self.elixir += ((self.wave_number - 1) * 1.0)
         self.elixir = min(self.elixir, self.max_elixir)
 
-        # Calcul des spawn
         base_spawn_interval = 1.5 
         self.spawn_interval = max(0.1, base_spawn_interval * (0.95 ** (self.wave_number - 1)))
 
-        # Fin de l'invulnérabilité de Kindred
         self.kindred_invulnerable = False
 
-        # =========================================================
-        # NOUVEAU : PASSIF DE GAREN (Soin de +1 PV)
-        # =========================================================
-        # Garen est la légende par défaut (ID 0)
         if getattr(self, 'legend_id', -1) == 0:
             if self.wave_number > 0 and self.wave_number % 25 == 0:
                 self.player_hp += 1
-                # Pas besoin de faire d'UPDATE SQL manuel ici ! 
-                # Le thread _sync_hp_db va automatiquement détecter ce changement 
-                # et l'envoyer dans game_sessions au prochain battement.
-
-        # =========================================================
-        # 1. PASSIF MORDEKAISER (Envoi de la malédiction à l'adversaire)
-        # =========================================================
+                
         if hasattr(self, 'legend_passive_name') and self.legend_passive_name == 'King_Realm':
-            # S'active à partir de la vague 5, et tous les multiples de 5 (5, 10, 15...)
             if self.wave_number >= 5 and self.wave_number % 5 == 0:
                 db = Connect()
                 if db:
                     try:
                         cursor = db.cursor()
-                        # On ajoute 3 ennemis de façon PERMANENTE (on cumule)
                         cursor.execute("""
                             UPDATE game_enemies 
                             SET Add_Enemies = COALESCE(Add_Enemies, 0) + 3 
@@ -543,9 +476,6 @@ class GameBoardPygame:
                         except: pass
                         db.close()
 
-        # =========================================================
-        # 2. LECTURE DES MALÉDICTIONS SUBIES (On ne nettoie plus la BDD !)
-        # =========================================================
         penalty = 0
         db = Connect()
         if db:
@@ -556,7 +486,6 @@ class GameBoardPygame:
                 
                 if row and row[0] is not None:
                     penalty = int(row[0])
-                    # ATTENTION : On a SUPPRIMÉ le UPDATE qui remettait à NULL ici. La malédiction reste !
                     
             except Exception as e:
                 print(f"Erreur vérification game_enemies : {e}")
@@ -565,16 +494,11 @@ class GameBoardPygame:
                 except: pass
                 db.close()
 
-        # Le nombre total d'ennemis prend en compte la pénalité permanente
         total_enemies = self.wave_number + penalty
 
-        # =========================================================
-        # PASSIF D'AZIR (Shurima Shuffle)
-        # =========================================================
         if hasattr(self, 'legend_passive_name') and self.legend_passive_name == 'Shurima_Shuffle':
             if self.available_deck:
                 
-                # ÉTAPE 1 : On détruit l'ancien soldat d'Azir pour libérer la place
                 towers_to_remove = []
                 for pos, unit in self.player_units_on_board.items():
                     if unit and unit.get('is_azir_soldier'):
@@ -583,14 +507,10 @@ class GameBoardPygame:
                 for pos in towers_to_remove:
                     del self.player_units_on_board[pos]
 
-                # === NOUVEAU : SÉCURITÉ ANTI-DUPLICATION (LE BUG DE LA MAIN) ===
-                # Si le joueur a soulevé le soldat et est en train de le tenir avec sa souris !
                 if getattr(self, 'dragging_unit', None) and self.dragging_unit.get('is_azir_soldier'):
-                    self.dragging_unit = None  # On vide la main du joueur
-                    self.drag_origin = None    # On oublie d'où elle venait
-                # ===============================================================
+                    self.dragging_unit = None  
+                    self.drag_origin = None   
 
-                # ÉTAPE 2 : On cherche les cases vides (il y en a forcément au moins une maintenant !)
                 valid_rows = range(1, self.grid_rows)     
                 valid_cols = range(1, self.grid_cols - 1) 
                 empty_cells = [(r, c) for r in valid_rows for c in valid_cols if (r, c) not in self.player_units_on_board]
@@ -599,14 +519,9 @@ class GameBoardPygame:
                     target_cell = random.choice(empty_cells)
                     unit_to_place = random.choice(self.available_deck).copy()
                     
-                    # ÉTAPE 3 : Calcul du niveau
-                    # Base : Niveau 2 (merge_count = 1)
-                    # +1 Niveau toutes les 20 vagues (wave_number // 20)
-                    # Maximum : Niveau 5 (merge_count = 4)
                     bonus_level = self.wave_number // 20
                     unit_to_place['merge_count'] = min(4, 1 + bonus_level)
                     
-                    # Le marqueur crucial pour l'identifier
                     unit_to_place['is_azir_soldier'] = True 
                     
                     self._update_unit_stats(unit_to_place)
@@ -614,11 +529,9 @@ class GameBoardPygame:
                     
                     self.player_units_on_board[target_cell] = unit_to_place
                     self._save_grid_to_db()
-        # =========================================================
         
         self.enemy_spawn_queue = [] 
         
-        # Vérification des Boss (Modulos)
         if self.wave_number % 25 == 0 and self.enemy_types.get(3):
             boss = random.choice(self.enemy_types[3])
             self.enemy_spawn_queue.append(boss)
@@ -629,7 +542,6 @@ class GameBoardPygame:
             self.enemy_spawn_queue.append(boss)
             total_enemies -= 1
             
-        # Remplissage avec les "Minions" (Difficulté 1)
         if self.enemy_types.get(1):
             for _ in range(total_enemies):
                 self.enemy_spawn_queue.append(random.choice(self.enemy_types[1]))
@@ -637,7 +549,6 @@ class GameBoardPygame:
         self.enemies_to_spawn = len(self.enemy_spawn_queue)
         self.last_spawn_time = time.time()
 
-        # Réduction du Cooldown de la légende
         if hasattr(self, 'legend_current_cd') and self.legend_current_cd > 0:
             self.legend_current_cd -= 1
 
@@ -647,7 +558,6 @@ class GameBoardPygame:
         if not db: return deck_units
         try:
             cursor = db.cursor(dictionary=True)
-            # NOUVEAU : On récupère absolument toutes les stats importantes de la BDD !
             query = """
                 SELECT u.ID_Unit, u.Name, u.Type, u.Attack, u.Attack_Speed, u.Price, 
                        u.Attack_Growth, u.ATS_Growth, u.SpecialEffect, u.Image_Data, 
@@ -681,24 +591,22 @@ class GameBoardPygame:
                     'attack_growth': row['Attack_Growth'],
                     'ats_growth': row['ATS_Growth'],
                     'special_effect': row['SpecialEffect'],
-                    'disabled': False # Pour le passif de Jimbo !
+                    'disabled': False 
                 })
             cursor.close()
             db.close()
         except Exception as e:
             print(f"Erreur _load_deck : {e}")
         finally:
-            # ---> LA GARANTIE ANTI-CRASH <---
             try: cursor.close()
             except: pass
             db.close()
             
-        return deck_units # Le return doit se faire tout à la fin, APRÈS le finally !
+        return deck_units
             
         return deck_units
 
     def _load_enemy_types(self):
-        # On prépare 3 listes pour les 3 difficultés
         types = {1: [], 2: [], 3: []}
         db = Connect()
         if not db: return types
@@ -717,7 +625,6 @@ class GameBoardPygame:
                         enemy_image = pygame.transform.scale(loaded_img, (self.cell_size, self.cell_size))
                     except: pass
                 
-                # Récupération des statistiques complètes depuis la BDD
                 diff = row.get('Difficulty', 1)
                 enemy_data = {
                     'id': row['ID_Enemy'],
@@ -729,7 +636,6 @@ class GameBoardPygame:
                     'image': enemy_image
                 }
                 
-                # On le range dans la bonne difficulté
                 if diff in types:
                     types[diff].append(enemy_data)
                 else:
@@ -754,7 +660,6 @@ class GameBoardPygame:
         if db:
             try:
                 cursor = db.cursor(dictionary=True)
-                # On récupère les infos de la légende équipée par ce joueur
                 cursor.execute("""
                     SELECT l.* FROM legend l 
                     JOIN users u ON u.Legend = l.ID_Legend 
@@ -772,7 +677,6 @@ class GameBoardPygame:
                         import io
                         img_stream = io.BytesIO(legend_data['Image_Data'])
                         img = pygame.image.load(img_stream).convert_alpha()
-                        # La taille parfaite pour aller à côté de votre bouton "Poser"
                         self.legend_image = pygame.transform.scale(img, (50, 50)) 
             except Exception as e:
                 print(f"Erreur chargement légende en jeu : {e}")
@@ -783,13 +687,10 @@ class GameBoardPygame:
     def _update_elixir(self):
         if self.game_over: return
         
-        # 1. Régénération de base (2 par seconde à 60 FPS comme prévu !)
         generation_rate = 2.0 / 60.0
         
-        # 2. PASSIF : Le Mineur Crypto
         for (r, c), unit in list(self.player_units_on_board.items()):
             if unit and unit.get('name') == 'Mineur Crypto':
-                # +0.5 d'élixir de base, et +0.5 par niveau de fusion
                 bonus_par_seconde = 0.5 + (unit.get('merge_count', 0) * 0.5)
                 generation_rate += (bonus_par_seconde / 60.0)
                 
@@ -798,29 +699,21 @@ class GameBoardPygame:
         if self.elixir > self.max_elixir:
             self.elixir = self.max_elixir
         
-        # =========================================================
-        # NOUVEAU : RÉDUCTION DU PRIX AVEC LE TEMPS
-        # =========================================================
         current_time = time.time()
-        # Si une seconde s'est écoulée depuis la dernière baisse
         if current_time - getattr(self, 'last_cost_reduction', 0) >= 1.0:
             
-            # On vérifie le Soft Cap (Le prix ne descend pas sous 30)
             if self.unit_cost > 30:
                 self.unit_cost -= 1
                 
-                # On met à jour l'affichage du bouton en temps réel !
                 if hasattr(self, 'add_unit_button'):
                     self.add_unit_button.text = f"Poser ({self.unit_cost})"
                     
-            # On réinitialise le chrono pour la prochaine seconde
             self.last_cost_reduction = current_time
 
     def _spawn_enemy_action(self):
         if self.game_over: return
         enemy_data = self._create_enemy_data()
         
-        # Sécurité : si la file est vide, on arrête là
         if not enemy_data: return 
         
         start_pos = self.player_path[0]
@@ -828,7 +721,7 @@ class GameBoardPygame:
         enemy_data['col'] = start_pos[1]
         
         enemy_data['path_index'] = 0 
-        enemy_data['path_index_float'] = 0.0 # <--- TRÈS IMPORTANT : Variable pour le mouvement fluide
+        enemy_data['path_index_float'] = 0.0 
 
         self.my_enemies.append(enemy_data)
 
@@ -842,7 +735,7 @@ class GameBoardPygame:
                     "name": enemy_data['name'],
                     "max_hp": enemy_data['max_hp'],
                     "current_hp": enemy_data['current_hp'],
-                    "speed": enemy_data['speed'], # <--- TRÈS IMPORTANT : On envoie la vitesse !
+                    "speed": enemy_data['speed'],
                     "id": enemy_data['id']
                 }
             })
@@ -854,19 +747,16 @@ class GameBoardPygame:
         base_enemy = self.enemy_spawn_queue.pop(0)
         passive = base_enemy.get('passive', '')
         
-        # On copie le dictionnaire pour ne pas modifier le modèle de la base de données !
         enemy_dict = base_enemy.copy()
         
-        # --- PASSIFS D'APPARITION (VOTRE LOGIQUE D'ORIGINE) ---
         if passive == 'Morpho' and self.enemy_types.get(1):
-            # Choisir un ennemi niveau 1 (qui n'est pas un Morpho lui-même)
             choices = [e for e in self.enemy_types[1] if e.get('passive') != 'Morpho']
             if choices:
                 target = random.choice(choices)
                 enemy_dict['name'] = target['name']
                 enemy_dict['image'] = target['image']
                 enemy_dict['speed'] = target['speed']
-                enemy_dict['hp'] = int(target['hp'] * 1.5) # +50% HP
+                enemy_dict['hp'] = int(target['hp'] * 1.5)
                 
         elif passive == 'MorphoA' and self.enemy_types.get(2):
             choices = [e for e in self.enemy_types[2] if e.get('passive') != 'MorphoA']
@@ -882,64 +772,47 @@ class GameBoardPygame:
             if active_cards:
                 card_to_disable = random.choice(active_cards)
                 card_to_disable['disabled'] = True 
-                # On retire la carte de la pioche disponible !
                 self.available_deck = [u for u in self.player_deck if not u.get('disabled', False)]
-        # ======================================================
 
         kills = getattr(self, 'total_enemies_killed', 0)
         base_hp = enemy_dict.get('hp', 10) 
         
-        # ====================================
-        # NOUVEAU SCALING : ÉQUILIBRAGE PAR DIFFICULTÉ
-        # ====================================
         enemy_id = enemy_dict.get('id')
         
-        # CORRECTION : On pointe vers la colonne "Difficulty" de votre BDD
-        # (Mettez 'Difficulty' avec une majuscule si votre dictionnaire respecte la casse SQL)
         enemy_difficulty = enemy_dict.get('difficulty', 1) 
         
-        # 1. JIMBO (Le Boss - Scaling Flat)
-        if enemy_id == 3: # Remplacez 3 par l'ID de Jimbo !
-            # Scaling Boss : +1 HP max par ennemi tué dans toute la partie
+        if enemy_id == 3: 
             final_hp = base_hp + kills 
             
-        # 2. ENNEMIS DIFFICULTÉ 2 (Scaling Lent)
         elif enemy_difficulty == 2:
-            # Scaling Tank : +10% cumulatif par numéro de vague
             hp_multiplier = 1.10 ** (self.wave_number - 1)
             final_hp = int(base_hp * hp_multiplier)
             
-        # 3. ENNEMIS DIFFICULTÉ 1 (Scaling Rapide)
         else:
-            # Scaling Normal : +30% cumulatif par numéro de vague
             hp_multiplier = 1.10 ** (self.wave_number - 1)
             final_hp = int(base_hp * hp_multiplier)
-        # ====================================
 
         return {
             'id': str(time.time()) + str(random.randint(0, 99999)), 
             'enemy_id': enemy_dict['id'],
             'name': enemy_dict['name'],
-            'max_hp': final_hp,        # <-- On utilise les HP Scaled !
-            'current_hp': final_hp,    # <-- On utilise les HP Scaled !
+            'max_hp': final_hp,       
+            'current_hp': final_hp,   
             'speed': enemy_dict['speed'],
             'reward': enemy_dict['reward'],
-            'passive': passive, # On garde le passif en mémoire pour sa mort !
+            'passive': passive, 
             'image': enemy_dict['image'],
             'row': 0.0, 
             'col': random.randint(1, self.grid_cols - 2)
         }
 
     def _handle_opponent_move_unit(self, data):
-        # Au lieu de bricoler les coordonnées à la main,
-        # on force le radar à s'actualiser INSTANTANÉMENT !
         self._fetch_opponent_grid()
 
     def _handle_opponent_spawn(self, data):
         e_data = data.get("enemy_data", {})
         
         img = None
-        # NOUVEAU : On fouille dans le dictionnaire des 3 difficultés
         for diff_level, enemies_list in self.enemy_types.items():
             for t in enemies_list:
                 if t['name'] == e_data.get('name'):
@@ -951,11 +824,11 @@ class GameBoardPygame:
             'row': e_data.get('row', 0),
             'col': e_data.get('col', 0),
             'path_index': 0, 
-            'path_index_float': 0.0, # Variable pour un mouvement fluide
+            'path_index_float': 0.0, 
             'name': e_data.get('name', 'Ennemi'),
             'max_hp': e_data.get('max_hp', 100),
             'current_hp': e_data.get('current_hp', 100),
-            'speed': e_data.get('speed', 1), # On applique la vitesse reçue !
+            'speed': e_data.get('speed', 1),
             'image': img,
             'id': e_data.get('id', 0)
         }
@@ -982,7 +855,6 @@ class GameBoardPygame:
             if result and result[0]:
                 image_stream = io.BytesIO(result[0])
                 avatar_img = pygame.image.load(image_stream).convert_alpha()
-                # On le redimensionne pour qu'il tienne bien dans la barre latérale du jeu
                 return pygame.transform.scale(avatar_img, (60, 60))
         except Exception as e:
             print(f"Erreur lors du chargement de l'avatar en jeu : {e}")
@@ -993,33 +865,23 @@ class GameBoardPygame:
         if self.game_over: return
         current_time = time.time()
 
-        # === NOUVEAU : NETTOYAGE DES PIÈGES ORPHELINS ===
-        # 1. On récupère les IDs des barrières des Firewalls sur le plateau
         active_barrier_ids = [u.get('my_barrier_id') for u in self.player_units_on_board.values() 
                               if u and u.get('name') == 'Firewall' and u.get('my_barrier_id')]
         
-        # 2. CORRECTION : On ajoute la barrière du Firewall qu'on est en train de soulever (drag & drop) !
         if hasattr(self, 'dragging_unit') and self.dragging_unit and self.dragging_unit.get('name') == 'Firewall':
             if self.dragging_unit.get('my_barrier_id'):
                 active_barrier_ids.append(self.dragging_unit['my_barrier_id'])
                               
-        # 3. On détruit instantanément toutes les barrières qui n'ont vraiment plus de maître
         self.player_barriers = [b for b in self.player_barriers if b['id'] in active_barrier_ids]
-        # ===============================================
-        
-        # On passe en revue chaque tour présente sur votre plateau
+
         for (t_row, t_col), unit in list(self.player_units_on_board.items()):
             if unit is None: continue
             
-            # On ignore les tours de soutien pour le moment (Onduleur, Serveur, Mineur...)
-            # Elles ont 0 d'attaque, on gère leurs effets ailleurs ou via des passifs !
             if unit.get('current_attack', 0) <= 0:
                 continue
                 
-            # Vérification du chronomètre individuel de cette tour
             if current_time - unit.get('last_attack_time', 0) >= unit.get('attack_cooldown', 1.0):
                 
-                # 1. Trouver et trier tous les ennemis par distance
                 enemies_with_dist = []
                 for enemy in self.my_enemies:
                     if enemy.get('current_hp', 0) > 0:
@@ -1027,43 +889,33 @@ class GameBoardPygame:
                         enemies_with_dist.append((dist, enemy))
                 
                 if not enemies_with_dist:
-                    continue # Personne à l'horizon, on ne tire pas !
+                    continue 
                 
                 u_name = unit.get('name', '')
                 
-                # === GESTION DU CIBLAGE (PASSIFS) ===
                 if u_name == 'Antivirus':
-                    # Trie par PV actuel (du plus grand au plus petit)
                     enemies_with_dist.sort(key=lambda x: x[1].get('current_hp', 0), reverse=True)
                 elif u_name == 'Tourelle SQL':
-                    # Trie par PV actuel (du plus petit au plus grand) pour achever les faibles
                     enemies_with_dist.sort(key=lambda x: x[1].get('current_hp', 0))
                 else:
-                    # Trie par défaut : Distance la plus courte
                     enemies_with_dist.sort(key=lambda x: x[0]) 
-                # ====================================
-                
-                # === GESTION DU BUFF SERVEUR ===
-                # On vérifie les 8 cases autour de la tour qui va tirer
+
                 server_bonus = 1.0
                 for dr in [-1, 0, 1]:
                     for dc in [-1, 0, 1]:
                         if dr == 0 and dc == 0: continue
                         voisin = self.player_units_on_board.get((t_row + dr, t_col + dc))
                         if voisin and voisin.get('name') == 'Serveur':
-                            server_bonus += 0.30 # +30% de dégâts par serveur adjacent !
+                            server_bonus += 0.30 
 
                 base_damage = unit.get('current_attack', 10)
                 damage = base_damage * server_bonus
-                # ===============================
                 
                 attack_executed = False
                 targets = []
 
-                # CORRECTION : On définit bien le type de la tour ici avant la logique de ciblage !
                 u_type = unit.get('type', 'Cible Unique')
 
-                # === LOGIQUE DE CIBLAGE ET D'EFFETS ===
                 if u_type == 'Cible Unique':
                     targets.append(enemies_with_dist[0][1])
 
@@ -1072,29 +924,24 @@ class GameBoardPygame:
                         targets.append(enemy)
 
                 elif u_type == 'AOE' or u_name == 'Générateur de Zone de Quarantaine':
-                    # PASSIF : La Zone de Quarantaine (Frappe TOUT le monde dans un rayon de 1.5)
                     splash_radius = 1.5 
                     
-                    # Effet visuel des cases rouges pour la Quarantaine
                     if u_name == 'Générateur de Zone de Quarantaine':
                         for dr in [-1, 0, 1]:
                             for dc in [-1, 0, 1]:
                                 z_rect = self._get_cell_rect(self.player_grid_rect, t_row + dr, t_col + dc)
-                                # On crée un faux tir visuel carré rouge au sol
                                 self.visual_attacks.append({
                                     'is_square': True, 
                                     'rect': z_rect, 
                                     'time': current_time
                                 })
                         
-                        # Inflige des dégâts à TOUS les ennemis dans la zone
                         for dist_from_tower, enemy in enemies_with_dist:
                             if dist_from_tower <= splash_radius:
                                 enemy['current_hp'] -= damage
                         attack_executed = True
                         
                     else:
-                        # AOE Classique (Cible principale + Splash autour)
                         primary_target = enemies_with_dist[0][1]
                         targets.append(primary_target)
                         for dist_from_tower, enemy in enemies_with_dist[1:]:
@@ -1103,36 +950,30 @@ class GameBoardPygame:
                                 enemy['current_hp'] -= damage 
                                 
                 elif u_name == 'Firewall':
-                    # PASSIF : Pose une SEULE barrière permanente sur une case libre du chemin
                     if not unit.get('barrier_placed'):
-                        # On liste les positions qui ont DÉJÀ une barrière
                         occupied_pos = [(b['row'], b['col']) for b in self.player_barriers]
                         
-                        # On filtre le chemin pour ne garder que les cases vides
                         available_path = [p for p in self.player_path if p not in occupied_pos]
                         
                         if available_path:
                             trap_pos = random.choice(available_path)
-                            trap_id = random.randint(1, 9999999) # CORRECTION : On crée l'ID ici
+                            trap_id = random.randint(1, 9999999) 
                             
                             self.player_barriers.append({
-                                'id': trap_id, # On donne l'ID à la barrière
+                                'id': trap_id,
                                 'row': trap_pos[0],
                                 'col': trap_pos[1],
                                 'damage': damage 
                             })
                             unit['barrier_placed'] = True 
                             
-                            # CORRECTION VITALE : La tour garde le ticket de sa barrière !
                             unit['my_barrier_id'] = trap_id 
                             
                             attack_executed = True
                 
-                # === APPLICATION DES DÉGÂTS ET LASERS ===
                 for target in targets:
                     target['current_hp'] -= damage
                     
-                    # Création du laser visuel pour chaque cible
                     start_rect = self._get_cell_rect(self.player_grid_rect, t_row, t_col)
                     end_rect = self._get_cell_rect(self.player_grid_rect, target['row'], target['col'])
                     
@@ -1143,36 +984,29 @@ class GameBoardPygame:
                     })
                     attack_executed = True
                 
-                # On remet le chrono de CETTE tour à zéro !
                 if attack_executed:
                     unit['last_attack_time'] = current_time
 
-        # Nettoyage des tirs visuels après 0.1s d'affichage
         self.visual_attacks = [v for v in self.visual_attacks if current_time - v['time'] < 0.1]
 
 
     def _update_enemies(self):
         if self.game_over: return
         
-        # On initialise le compteur de kills s'il n'existe pas encore
         if not hasattr(self, 'total_enemies_killed'):
             self.total_enemies_killed = 0
             
         current_time = time.time() 
         enemies_to_remove = []
-        new_spawns = [] # On stocke les apparitions ici pour ne pas faire planter la boucle
+        new_spawns = [] 
         
-        # --- ENNEMIS DU JOUEUR ---
         for enemy in self.my_enemies:
             
-            # --- Vérification de la mort et déclenchement des Passifs ---
             if enemy.get('current_hp', 1) <= 0:
                 self.elixir += enemy.get('reward', 1) 
                 
-                # On incrémente le compteur d'ennemis tués !
                 self.total_enemies_killed += 1 
                 
-                # On sécurise la lecture (retire les espaces accidentels de la BDD)
                 passive = enemy.get('passive', '').strip()
                 
                 if passive == 'Explosion':
@@ -1192,11 +1026,8 @@ class GameBoardPygame:
                             virus_template = self.enemy_types[1][0] 
                             
                     if virus_template:
-                        # Le Virus qui spawn profite aussi du scaling des vagues !
                         hp_multiplier = 1.0 + (self.wave_number * 0.03)
                         final_hp = int(virus_template['hp'] * hp_multiplier)
-
-                        # On fait spawner UN SEUL virus pour l'équilibrage
                         new_virus = {
                             'id': str(time.time()) + str(random.randint(0, 99999)),
                             'enemy_id': virus_template['id'],
@@ -1214,7 +1045,6 @@ class GameBoardPygame:
                         }
                         new_spawns.append(new_virus)
 
-                        # On prévient l'adversaire en multijoueur !
                         if self.network_client:
                             self.network_client.send_message({
                                 "action": "spawn_enemy",
@@ -1231,54 +1061,41 @@ class GameBoardPygame:
                             })
 
                 enemies_to_remove.append(enemy)
-                continue # On passe à l'ennemi suivant
+                continue
                 
-            # --- GESTION DE LA VITESSE ET DU FIREWALL ---
             base_speed = enemy.get('speed', 1) 
             current_speed = base_speed
             
-            # Est-ce que l'ennemi est sous l'effet d'un ralentissement ?
             if current_time < enemy.get('slow_until', 0):
-                current_speed = base_speed * 0.75 # Réduction de 25% de la vitesse !
+                current_speed = base_speed * 0.75 
                 
-            # Avancée par image (avec la vitesse modifiée)
             enemy['path_index_float'] += current_speed / 60.0
             idx = int(enemy['path_index_float'])
             
-            # NOUVEAU : On crée une mémoire pour l'ennemi s'il n'en a pas
             if 'hit_barriers' not in enemy:
                 enemy['hit_barriers'] = []
             
-            # Vérification : L'ennemi marche-t-il sur une barrière du Firewall ?
             for b in self.player_barriers:
-                # S'il n'a PAS encore été touché par CETTE barrière spécifique
                 if b['id'] not in enemy['hit_barriers']:
-                    # S'il est à moins de 0.5 case de la barrière
                     if math.sqrt((enemy['row'] - b['row'])**2 + (enemy['col'] - b['col'])**2) < 0.5:
-                        enemy['slow_until'] = current_time + 1.0 # Ralenti pendant 1 seconde
-                        enemy['current_hp'] -= b.get('damage', 10) # Subit les dégâts du piège
-                        enemy['hit_barriers'].append(b['id']) # Mémorise la barrière !
+                        enemy['slow_until'] = current_time + 1.0 
+                        enemy['current_hp'] -= b.get('damage', 10)
+                        enemy['hit_barriers'].append(b['id']) 
             
             if idx >= len(self.player_path) - 1:
-                # NOUVEAU : Invulnérabilité de Kindred
                 if getattr(self, 'kindred_invulnerable', False):
                     print("Kindred")
                 else:
                     self.player_hp -= 1
                     
-                    # NOUVEAU : Passif de Survie de Karthus
                     if self.player_hp <= 0 and self.legend_passive_name == 'Imminent_Death' and not getattr(self, 'karthus_used_passive', False):
                         self.player_hp = 1
                         self.karthus_used_passive = True
                         
                 enemies_to_remove.append(enemy)
-                # === LA CORRECTION EST ICI ===
                 if self.player_hp <= 0:
-                    # On force le radar à envoyer notre mort IMMÉDIATEMENT !
-                    # C'est la méthode _sync_hp_db qui se chargera d'appeler end_game 
-                    # une fois que la base de données aura bien reçu le 0.
                     self._sync_hp_db()
-                # =============================
+
             else:
                 enemy['path_index'] = idx
                 fraction = enemy['path_index_float'] - idx
@@ -1286,17 +1103,13 @@ class GameBoardPygame:
                 next_pos = self.player_path[idx + 1]
                 enemy['row'] = curr_pos[0] + (next_pos[0] - curr_pos[0]) * fraction
                 enemy['col'] = curr_pos[1] + (next_pos[1] - curr_pos[1]) * fraction
-            # ---------------------------------------------
 
-        # On nettoie les morts
         for e in enemies_to_remove:
             if e in self.my_enemies:
                 self.my_enemies.remove(e)
                 
-        # On ajoute les nouveaux virus sur le plateau une fois la boucle terminée
         self.my_enemies.extend(new_spawns)
 
-        # --- ENNEMIS DE L'ADVERSAIRE ---
         opp_enemies_to_remove = []
         for enemy in self.opponent_enemies:
             if enemy.get('current_hp', 1) <= 0:
@@ -1342,18 +1155,13 @@ class GameBoardPygame:
         
         unit_to_place['merge_count'] = 0 
         
-        # NOUVEAU : On calcule ses stats et on lui donne son chrono !
         self._update_unit_stats(unit_to_place)
-        unit_to_place['last_attack_time'] = time.time() # Chrono individuel
+        unit_to_place['last_attack_time'] = time.time() 
 
-        # On paye la tour
         self.elixir -= self.unit_cost
         
-        # --- LOGIQUE D'AUGMENTATION FIXE ---
-        self.unit_cost += 10  # On ajoute toujours +10, tout simplement !
-        # -----------------------------------
+        self.unit_cost += 10  
 
-        # === MISE À JOUR VISUELLE DU BOUTON ===
         if hasattr(self, 'add_unit_button'):
             self.add_unit_button.text = f"Poser ({self.unit_cost})"
         
@@ -1368,33 +1176,24 @@ class GameBoardPygame:
                 "row": target_cell[0],
                 "col": target_cell[1]
             })
-
-        # ===================================================
-        # AJOUTEZ LA SAUVEGARDE ICI :
         self._save_grid_to_db()
-        # ===================================================
 
     def _update_unit_stats(self, unit):
         """Calcule les stats finales de la tour en fonction de son Level et de ses Fusions"""
         level_bonus = unit.get('level', 1) - 1
         merge_count = unit.get('merge_count', 0)
         
-        # 1. Stats de base améliorées par le niveau de la carte (hors partie)
         base_atk = unit.get('base_attack', 0) + (level_bonus * unit.get('attack_growth', 0))
         base_ats = unit.get('base_attack_speed', 0.1) + (level_bonus * unit.get('ats_growth', 0.0))
         
-        # 2. Bonus de Fusion en cours de partie (ex: +50% de dégâts et +20% de vitesse par étoile)
         unit['current_attack'] = base_atk * (1 + (merge_count * 0.50))
-        # NOUVEAU : Passif de Briar (Blood Lusted)
         if hasattr(self, 'legend_passive_name') and self.legend_passive_name == 'Blood_Lusted':
             hp_missing = 5 - self.player_hp
             if hp_missing > 0:
-                bonus = hp_missing * 0.12 # +12% par PV manquant
+                bonus = hp_missing * 0.12 
                 unit['current_attack'] *= (1 + bonus)
         unit['current_attack_speed'] = base_ats * (1 + (merge_count * 0.20))
         
-        # 3. Calcul du Chronomètre individuel (Cooldown) : 1 / Vitesse
-        # Ex: Si ATS = 2.0, la tour tire toutes les 0.5 secondes. (max(0.1) évite de diviser par zéro)
         final_ats = max(0.1, unit['current_attack_speed'])
         unit['attack_cooldown'] = 1.0 / final_ats
 
@@ -1410,26 +1209,17 @@ class GameBoardPygame:
         if isinstance(unit_data, dict):
             image = unit_data.get('image')
             
-            # 1. On dessine l'image de la tour
             if image:
                 img_rect = image.get_rect(center=cell_rect.center)
                 self.screen.blit(image, img_rect)
             else:
                 pygame.draw.circle(self.screen, color_fallback, cell_rect.center, self.cell_size // 3)
 
-            # =========================================================
-            # NOUVEAU : AFFICHAGE DU NIVEAU DE FUSION ET DE LA CARTE
-            # =========================================================
-            # fusion_level = le rang sur le plateau (les fusions)
             fusion_level = unit_data.get('merge_count', 0) + 1 
-            # card_level = le vrai niveau d'amélioration de la boutique
             card_level = unit_data.get('level', 1)
             
             font_lvl = pygame.font.Font(None, 20) 
             
-            # Affichage clair => T (Tier de fusion) et N (Niveau de la carte)
-            # Exemple : T2 (N.5) pour une tour fusionnée une fois et niveau 5.
-            # Si vous préférez n'afficher QUE le niveau de la carte, mettez : f"Lv.{card_level}"
             lvl_text = font_lvl.render(f"T{fusion_level} (N.{card_level})", True, (255, 255, 255))
             
             text_rect = lvl_text.get_rect(bottomright=(cell_rect.right - 4, cell_rect.bottom - 4))
@@ -1439,13 +1229,9 @@ class GameBoardPygame:
             
             self.screen.blit(bg_surface, (text_rect.x - 3, text_rect.y - 2))
             self.screen.blit(lvl_text, text_rect)
-            # =========================================================
 
             return cell_rect
 
-        # =========================================================
-        # (Cas exceptionnel où unit_data serait juste une image)
-        # =========================================================
         else:
             image = unit_data
 
@@ -1470,18 +1256,14 @@ class GameBoardPygame:
         y = 60
         for u in self.player_deck:
             if u.get('image'): 
-                # On prépare l'image à la bonne taille
                 img = pygame.transform.scale(u['image'], (50, 50))
                 img_x = (self.SIDEBAR_WIDTH - 50) // 2
                 
-                # NOUVEAU : Si la carte est désactivée par Jimbo
                 if u.get('disabled', False):
-                    img = img.copy() # On copie pour ne pas détruire l'image d'origine
-                    # Assombrit fortement l'image
+                    img = img.copy()
                     img.fill((100, 100, 100), special_flags=pygame.BLEND_RGBA_MULT)
                     self.screen.blit(img, (img_x, y))
                     
-                    # Dessine une grosse croix rouge par dessus
                     pygame.draw.line(self.screen, (255, 0, 0), (img_x, y), (img_x + 50, y + 50), 3)
                     pygame.draw.line(self.screen, (255, 0, 0), (img_x + 50, y), (img_x, y + 50), 3)
                 else:
@@ -1544,11 +1326,9 @@ class GameBoardPygame:
                 opp_wave_col = "Player2_Wave" if self.is_player1 else "Player1_Wave"
                 opp_ready_col = "Player2_Ready" if self.is_player1 else "Player1_Ready"
 
-                # Mise à jour de nos PV
                 cursor.execute(f"UPDATE game_sessions SET {my_hp_col} = %s WHERE ID_Game = %s", (self.player_hp, self.game_id))
                 db.commit()
 
-                # Lecture des données adverses (PV + Vague + Sort + Légendes)
                 cursor.execute(f"SELECT {opp_hp_col}, {opp_wave_col}, {opp_ready_col}, Player1_Legend, Player2_Legend FROM game_sessions WHERE ID_Game = %s", (self.game_id,))
                 row = cursor.fetchone()
 
@@ -1556,22 +1336,16 @@ class GameBoardPygame:
                     if row[0] is not None: self.opponent_hp = row[0]
                     if row[1] is not None: self.opponent_wave_db = row[1]
                     
-                    # === L'ADVERSAIRE A LANCÉ UNE COMPÉTENCE ! ===
                     opp_ready_state = row[2]
                     if opp_ready_state == 1:
-                        # row[3] = Player1_Legend, row[4] = Player2_Legend
                         opp_legend_id = row[4] if self.is_player1 else row[3]
                                 
-                        # ID 4 = Mordekaiser
                         if opp_legend_id == 4: 
                             self.mordekaiser_penalty = getattr(self, 'mordekaiser_penalty', 0) + 5
                         
-                        # On remet le Ready de l'adversaire à 0 pour dire qu'on a bien reçu l'attaque
                         cursor.execute(f"UPDATE game_sessions SET {opp_ready_col} = 0 WHERE ID_Game = %s", (self.game_id,))
                         db.commit()
-                    # =============================================
 
-                    ## 5. LE JUGEMENT FINAL (Victoire ou Défaite)
                     if self.player_hp <= 0:
                         cursor.execute("UPDATE game_sessions SET Status = 'Finished', Winner_ID = %s WHERE ID_Game = %s", (self.opponent_id, self.game_id))
                         db.commit()
@@ -1593,20 +1367,15 @@ class GameBoardPygame:
         """Cette fonction tourne en tâche de fond pour ne pas geler l'écran !"""
         self._fetch_opponent_grid()
         self._sync_hp_db()
-        # NOUVEAU : La petite ligne manquante pour allumer le radar !
         self._check_my_grid_from_db()
 
     def surrender(self):
-        # Au lieu de quitter, on affiche la demande de confirmation
         self.confirm_surrender = True
 
     def _do_surrender(self):
         """Action déclenchée si le joueur clique sur OUI"""
         self.player_hp = 0
-        # On ferme la confirmation
         self.confirm_surrender = False
-        # On force une synchronisation immédiate pour mettre la BDD à 0
-        # Cela déclenchera end_game("Opponent") dans la foulée
         self._sync_hp_db()
 
     def _cancel_surrender(self):
@@ -1671,21 +1440,15 @@ class GameBoardPygame:
         self.return_menu_button.draw(self.screen)
 
     def run(self):
-        # On regroupe les deux chronomètres en un seul
         self.last_sync_time = time.time()
         
         while True:
             current_time = time.time()
             
-            # =========================================================
-            # NOUVEAU : Synchronisation en TÂCHE DE FOND (Zéro Lag !)
             if current_time - getattr(self, 'last_sync_time', 0) > 0.5:
-                # On lance nos radars via un assistant externe
                 threading.Thread(target=self._background_sync, daemon=True).start()
                 self.last_sync_time = current_time
-            # =========================================================
-            
-            # (Le reste de votre code ne change pas)
+
             self._update_elixir()
             self._update_enemies()
             self._update_combat()
@@ -1705,10 +1468,8 @@ class GameBoardPygame:
                     if event.button == 1: 
                         mouse_pos = event.pos
 
-                        # Clic sur l'icône de la Légende
                         if hasattr(self, 'legend_rect') and self.legend_rect.collidepoint(event.pos):
                             if self.legend_id > 0 and self.legend_current_cd == 0 and self.legend_active_name and self.legend_active_name != 'None':
-                                # 1. ORNN - UPGRADE (Effet Local Immédiat)
                                 if self.legend_active_name == 'Upgrade':
                                     towers = list(self.player_units_on_board.keys())
                                     if towers:
@@ -1718,21 +1479,18 @@ class GameBoardPygame:
                                             unit['merge_count'] += 1
                                             self._update_unit_stats(unit)
                                             self._save_grid_to_db()
-                                            self.legend_current_cd = self.legend_max_cd # On lance le CD
+                                            self.legend_current_cd = self.legend_max_cd 
                                             
-                                # 2. KINDRED - PEACE EMBRACE (Effet Local Immédiat)
                                 elif self.legend_active_name == 'Peace_Embrace':
                                     self.kindred_invulnerable = True
-                                    self.legend_current_cd = self.legend_max_cd # On lance le CD
+                                    self.legend_current_cd = self.legend_max_cd 
                                     
-                                # 3. KARTHUS - MORTAL REQUIEM (Effet Direct BDD)
                                 elif self.legend_active_name == 'Mortal_Requiem':
                                     db = Connect()
                                     if db:
                                         try:
                                             cursor = db.cursor()
                                             
-                                            # 1. On récupère la grille de l'adversaire
                                             cursor.execute(
                                                 "SELECT Grid_State FROM player_grids WHERE ID_Game = %s AND ID_Users = %s", 
                                                 (self.game_id, self.opponent_id)
@@ -1743,19 +1501,16 @@ class GameBoardPygame:
                                                 import json
                                                 opp_grid = json.loads(row[0])
                                                 
-                                                # 2. On cherche toutes les coordonnées des tours existantes
                                                 towers_coords = []
                                                 for r in range(4):
                                                     for c in range(8):
                                                         if opp_grid[r][c] is not None:
                                                             towers_coords.append((r, c))
                                                             
-                                                # 3. S'il a des tours, on en détruit une au hasard
                                                 if towers_coords:
                                                     target_r, target_c = random.choice(towers_coords)
-                                                    opp_grid[target_r][target_c] = None # On met la case à null
+                                                    opp_grid[target_r][target_c] = None 
                                                     
-                                                    # 4. On sauvegarde la nouvelle grille mutilée en BDD
                                                     new_grid_json = json.dumps(opp_grid)
                                                     cursor.execute(
                                                         "UPDATE player_grids SET Grid_State = %s WHERE ID_Game = %s AND ID_Users = %s",
@@ -1763,7 +1518,6 @@ class GameBoardPygame:
                                                     )
                                                     db.commit()
                                             
-                                            # On lance le Cooldown dans tous les cas
                                             self.legend_current_cd = self.legend_max_cd 
                                             
                                         except Exception as e:
@@ -1774,11 +1528,10 @@ class GameBoardPygame:
                                             
                             continue
 
-                        # PRIORITÉ : Si on est en train de confirmer l'abandon
                         if self.confirm_surrender:
                             if self.btn_confirm_yes.handle_event(event): self.btn_confirm_yes.action()
                             if self.btn_confirm_no.handle_event(event): self.btn_confirm_no.action()
-                            continue # On ignore le reste du jeu tant qu'on n'a pas répondu
+                            continue 
                         
                         if self.game_over:
                             if self.return_menu_button.handle_event(event): return self.return_menu_button.action()
@@ -1808,16 +1561,12 @@ class GameBoardPygame:
                             elif new_grid_pos and new_grid_pos in self.player_units_on_board:
                                 target_unit = self.player_units_on_board[new_grid_pos]
                                 
-                                # LA CORRECTION DES FUSIONS + LE PASSIF DE L'ONDULEUR
                                 is_same_level = target_unit.get('merge_count', 0) == self.dragging_unit.get('merge_count', 0)
                                 
-                                # C'est la même unité, OU BIEN la carte qu'on glisse est un Onduleur !
                                 is_valid_merge = (target_unit['id'] == self.dragging_unit['id']) or (self.dragging_unit.get('name') == 'Onduleur')
 
-                                # === NOUVEAU : INTERDICTION DE FUSION POUR AZIR ===
                                 if target_unit.get('is_azir_soldier') or self.dragging_unit.get('is_azir_soldier'):
                                     is_valid_merge = False
-                                # ==================================================
                                 
                                 if is_valid_merge and is_same_level:
                                     current_merges = target_unit.get('merge_count', 0)
@@ -1837,10 +1586,7 @@ class GameBoardPygame:
                             self.dragging_unit = None
                             self.drag_origin = None
 
-                            # =========================================================
-                            # NOUVEAU : On sauvegarde la grille en BDD après le mouvement !
                             self._save_grid_to_db()
-                            # =========================================================
                     
                     self.add_unit_button.handle_event(event)
                     self.surrender_button.handle_event(event)
@@ -1861,7 +1607,6 @@ class GameBoardPygame:
             sep_y = (self.opponent_grid_rect.bottom + self.player_grid_rect.top) // 2
             pygame.draw.line(self.screen, self.SEPARATOR_COLOR, (sep_x_start, sep_y), (sep_x_end, sep_y), 3)
 
-            # --- AFFICHAGE TEXTE VAGUE ---
             state = getattr(self, 'wave_state', 'TIMER')
             
             if state == 'FIGHTING':
@@ -1871,9 +1616,8 @@ class GameBoardPygame:
                 wave_txt = "EN ATTENTE DE L'ADVERSAIRE..."
                 color_wave = (255, 165, 0)
             elif state == 'SAFETY':
-                # Texte spécifique pour le Safe Check
                 wave_txt = "VÉRIFICATION DE SYNCHRONISATION..."
-                color_wave = (0, 255, 255) # Cyan pour rassurer
+                color_wave = (0, 255, 255)
             else:
                 next_w = self.wave_number if self.wave_number > 1 else 1
                 wave_txt = f"Prochaine vague ({next_w}): {int(self.wave_timer)}s"
@@ -1892,23 +1636,18 @@ class GameBoardPygame:
             hp_surf = self.font_ui.render(hp_txt, True, (255, 50, 50)) 
             self.screen.blit(hp_surf, (self.screen_width - 120, self.screen_height - 60))
 
-            # --- DESSIN DES UNITÉS DU JOUEUR ---
             for (r, c), u in list(self.player_units_on_board.items()):
-                # 1. Dessin normal de l'unité
                 self._draw_entity_on_grid(self.player_grid_rect, r, c, u)
                 
                 if u:
-                    # === NOUVEAU : EFFET VISUEL AZIR (Jaune) ===
                     if u.get('is_azir_soldier'):
                         rect = self._get_cell_rect(self.player_grid_rect, r, c)
                         s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-                        s.fill((255, 255, 0, 60)) # Jaune avec 60 d'opacité
+                        s.fill((255, 255, 0, 60)) 
                         self.screen.blit(s, rect.topleft)
                         
-                    # === EFFET VISUEL SERVEUR (Cyan) ===
                     elif u.get('name') != 'Serveur':
                         is_buffed = False
-                        # Vérification des 8 cases adjacentes
                         for dr in [-1, 0, 1]:
                             for dc in [-1, 0, 1]:
                                 if dr == 0 and dc == 0: continue
@@ -1923,19 +1662,10 @@ class GameBoardPygame:
                             s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
                             s.fill((0, 255, 255, 60)) # Cyan
                             self.screen.blit(s, rect.topleft)
-            # -----------------------------------
-            
-            # =========================================================
-            # Dessin de la grille adverse (en haut)
-            
-            # LA CORRECTION EST ICI : On ajoute list() pour "figer" le dictionnaire
-            # pendant le temps du dessin et éviter que le Thread ne le casse !
+
             for (r, c), unit in list(self.opponent_units_on_board.items()):
                 if unit:
-                    # On utilise directement votre méthode _draw_entity_on_grid !
-                    # Elle se charge de tout placer dans self.opponent_grid_rect
                     self._draw_entity_on_grid(self.opponent_grid_rect, r, c, unit)
-            # =========================================================
 
             for e in self.my_enemies:
                 rect = self._draw_entity_on_grid(self.player_grid_rect, e['row'], e['col'], e['image'], self.ENEMY_COLOR)
@@ -1946,17 +1676,15 @@ class GameBoardPygame:
 
             for shot in self.visual_attacks:
                 if shot.get('is_square'):
-                    # Dessine un carré rouge semi-transparent au sol pour la Quarantaine
                     s = pygame.Surface((shot['rect'].width, shot['rect'].height), pygame.SRCALPHA)
-                    s.fill((255, 0, 0, 100)) # Rouge transparent
+                    s.fill((255, 0, 0, 100)) 
                     self.screen.blit(s, shot['rect'].topleft)
                 else:
-                    # Laser classique
                     pygame.draw.line(self.screen, self.LASER_COLOR, shot['start'], shot['end'], 3)
             
             for b in self.player_barriers:
                 rect = self._get_cell_rect(self.player_grid_rect, b['row'], b['col'])
-                pygame.draw.rect(self.screen, (255, 165, 0), rect, 3) # Un beau carré Orange !
+                pygame.draw.rect(self.screen, (255, 165, 0), rect, 3) 
 
             if self.dragging_unit and self.dragging_unit['image']:
                 mx, my = pygame.mouse.get_pos()
@@ -1966,11 +1694,9 @@ class GameBoardPygame:
                      pygame.draw.circle(self.screen, (255, 215, 0), (mx - self.drag_offset[0] + 50, my - self.drag_offset[1] + 10), 8)
 
             if not self.game_over:
-                # --- NOUVEAU : DESSIN DE LA LÉGENDE ---
                 if hasattr(self, 'legend_id') and self.legend_id > 0 and self.legend_image:
                     self.screen.blit(self.legend_image, self.legend_rect)
                     
-                    # Si c'est en Cooldown, on grise et on affiche le chiffre
                     if self.legend_current_cd > 0:
                         dark_surface = pygame.Surface((50, 50), pygame.SRCALPHA)
                         dark_surface.fill((0, 0, 0, 180)) # Voile noir
@@ -1979,21 +1705,17 @@ class GameBoardPygame:
                         cd_text = self.font.render(str(self.legend_current_cd), True, (255, 255, 255))
                         cd_rect = cd_text.get_rect(center=self.legend_rect.center)
                         self.screen.blit(cd_text, cd_rect)
-                # --------------------------------------
                 self.add_unit_button.draw(self.screen)
                 self.surrender_button.draw(self.screen)
             else:
                 self._draw_game_over()
             
-            # --- DESSIN DE LA CONFIRMATION D'ABANDON ---
             if self.confirm_surrender:
-                # 1. On dessine un voile noir semi-transparent sur tout l'écran
                 overlay = pygame.Surface((self.screen_width, self.screen_height))
                 overlay.set_alpha(180)
                 overlay.fill((0, 0, 0))
                 self.screen.blit(overlay, (0, 0))
                 
-                # 2. On affiche le message et les boutons
                 confirm_surf = self.font_ui.render("ÊTES-VOUS SÛR DE VOULOIR ABANDONNER ?", True, (255, 255, 255))
                 confirm_rect = confirm_surf.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 50))
                 self.screen.blit(confirm_surf, confirm_rect)
