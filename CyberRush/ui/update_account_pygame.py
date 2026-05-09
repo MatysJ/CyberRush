@@ -168,7 +168,6 @@ class UpdateAccountPygame:
                 self.new_password_input.handle_event(event)
                 self.current_password_input.handle_event(event)
 
-                # --- NOUVEAU : GESTION DE LA TOUCHE TAB ---
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
                     active_idx = -1
                     for i, field in enumerate(self.input_fields):
@@ -181,10 +180,8 @@ class UpdateAccountPygame:
                     self.input_fields[next_idx].cursor_pos = len(self.input_fields[next_idx].text)
                     continue
 
-                # === NOUVEAU : VALIDATION AVEC ENTRÉE ===
                 if event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER):
                     return self.update_button.action()
-                # ========================================
                 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.eye_rect_new.collidepoint(event.pos): self.toggle_eye_new()
