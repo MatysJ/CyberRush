@@ -27,22 +27,20 @@ class FriendsPygame:
         self.send_request_button = Button("Envoyer demande", (center_left, 220), self.send_request, size=(200, 40))
         self.back_button = Button("Retour", (self.screen_width // 2, self.screen_height - 50), self.go_back, size=(180, 40))
 
-        self.incoming_requests = [] # Demandes reçues
-        self.outgoing_requests = [] # Demandes envoyées en attente
-        self.friends = []           # Amis acceptés
+        self.incoming_requests = [] 
+        self.outgoing_requests = [] 
+        self.friends = []          
         self.load_data()
 
-        # --- NOUVEAU : Chronomètre de rafraîchissement ---
         import time 
         self.last_refresh_time = time.time()
-        self.refresh_interval = 5.0 # Rafraîchit toutes les 5 secondes
+        self.refresh_interval = 5.0 
 
     def load_data(self):
         db = Connect()
         if db:
             try:
                 c = db.cursor()
-                # 1. Demandes reçues (En attente)
                 c.execute("""
                     SELECT f.ID_Friends, u.Pseudo 
                     FROM friends f 
@@ -51,7 +49,6 @@ class FriendsPygame:
                 """, (self.user_id,))
                 self.incoming_requests = c.fetchall()
 
-                # 2. Demandes envoyées (En attente) - NOUVEAU
                 c.execute("""
                     SELECT f.ID_Friends, u.Pseudo 
                     FROM friends f 
@@ -60,7 +57,6 @@ class FriendsPygame:
                 """, (self.user_id,))
                 self.outgoing_requests = c.fetchall()
 
-                # 3. Liste d'amis (Acceptés) - On récupère l'ID de la relation pour supprimer
                 c.execute("""
                     SELECT f.ID_Friends, u.Pseudo 
                     FROM friends f 
@@ -75,7 +71,6 @@ class FriendsPygame:
                 c.close()
                 db.close()
 
-            # === NOUVEAU : On actualise les boutons après avoir chargé la BDD ===
             self._build_dynamic_buttons()
 
     def send_request(self):
@@ -84,9 +79,7 @@ class FriendsPygame:
         db = Connect()
         if db:
             try:
-                # On ajoute buffered=True pour vider la mémoire de MySQL automatiquement
                 c = db.cursor(buffered=True)
-                # 1. On cherche l'ID de l'utilisateur cible
                 c.execute("SELECT ID_Users FROM users WHERE Pseudo = %s", (target_pseudo,))
                 target = c.fetchone()
                 
@@ -95,17 +88,14 @@ class FriendsPygame:
                     if target_id == self.user_id:
                         print("Impossible de s'ajouter soi-même.")
                     else:
-                        # 2. On vérifie si une relation (demande ou ami) existe déjà
                         c.execute("SELECT Status FROM friends WHERE (Sender_ID=%s AND Receiver_ID=%s) OR (Sender_ID=%s AND Receiver_ID=%s)", 
                                   (self.user_id, target_id, target_id, self.user_id))
                         
-                        # FIX : On utilise fetchall() pour consommer tous les résultats et libérer le curseur
                         existing_relation = c.fetchall()
                         
                         if existing_relation:
                             print("Une relation existe déjà ou une demande est en cours.")
                         else:
-                            # 3. On insère la nouvelle demande
                             c.execute("INSERT INTO friends (Sender_ID, Receiver_ID, Status) VALUES (%s, %s, 'Pending')", 
                                       (self.user_id, target_id))
                             db.commit()
@@ -119,7 +109,6 @@ class FriendsPygame:
             finally:
                 c.close()
                 db.close()
-                # On recharge les données pour mettre à jour la liste "Demandes envoyées"
                 self.load_data()
 
     def respond_request(self, friend_request_id, status):
@@ -159,7 +148,6 @@ class FriendsPygame:
         self.screen.blit(surf, rect)
 
     def _build_dynamic_buttons(self):
-        # Boutons des demandes reçues
         self.inc_buttons = []
         for i, req in enumerate(self.incoming_requests):
             y = 150 + (i * 40)
@@ -167,14 +155,12 @@ class FriendsPygame:
             b_ref = Button("X", (self.screen_width - 100, y), lambda r=req[0]: self.respond_request(r, 'Rejected'), size=(40, 30))
             self.inc_buttons.append((b_acc, b_ref))
 
-        # Boutons des demandes envoyées (Bouton Annuler décalé pour les pseudos longs !)
         self.out_buttons = []
         for i, req in enumerate(self.outgoing_requests):
             y = 350 + (i * 40)
             b_can = Button("Annuler", (self.screen_width // 4 + 180, y), lambda r=req[0]: self.delete_relation(r), size=(80, 25), font_size=20)
             self.out_buttons.append(b_can)
 
-        # Boutons de suppression d'amis
         self.friend_del_buttons = []
         self.y_friends_start = 150 + (len(self.incoming_requests) * 40) + 60
         for i, f in enumerate(self.friends):
@@ -184,29 +170,21 @@ class FriendsPygame:
 
     def run(self):
         while True:
-            # =======================================================
-            # NOUVEAU : VÉRIFICATION AUTOMATIQUE TOUTES LES 5 SECONDES
-            # =======================================================
             import time
             current_time = time.time()
             if current_time - getattr(self, 'last_refresh_time', 0) > self.refresh_interval:
-                self.load_data() # Recharge les amis et recrée les boutons !
+                self.load_data()
                 self.last_refresh_time = current_time
-            # =======================================================
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return None
 
-                # === NOUVEAU : VALIDATION AVEC ENTRÉE ===
                 if event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER):
-                    # Attention, ici il n'y a pas de "return" car cela n'ouvre pas une nouvelle fenêtre !
                     self.send_request_button.action()
-                # ========================================
                 
                 self.pseudo_input.handle_event(event)
                 if self.send_request_button.handle_event(event): self.send_request_button.action()
                 if self.back_button.handle_event(event): return self.back_button.action()
                 
-                # Écoute des petits boutons dynamiques
                 for b1, b2 in list(self.inc_buttons):
                     if b1.handle_event(event): b1.action()
                     if b2.handle_event(event): b2.action()
@@ -218,17 +196,10 @@ class FriendsPygame:
             self.screen.fill(self.CYBER_GREY)
             self.draw_text("GESTION DES AMIS", self.font_title, self.CYBER_BLUE, (self.screen_width // 2, 50))
             
-            # =======================================================
-            # NOUVEAU : LES TRAITS DE SÉPARATION (Lignes bleues)
-            # =======================================================
-            # 1. Trait vertical au centre pour séparer Gauche / Droite
             pygame.draw.line(self.screen, self.CYBER_BLUE, (self.screen_width // 2, 100), (self.screen_width // 2, self.screen_height - 100), 2)
             
-            # 2. Trait horizontal à gauche pour séparer l'Ajout et les Demandes envoyées
             pygame.draw.line(self.screen, self.CYBER_BLUE, (50, 280), (self.screen_width // 2 - 50, 280), 2)
-            # =======================================================
 
-            # --- COLONNE GAUCHE ---
             self.draw_text("Ajouter un ami", self.font, self.CYBER_BLUE, (self.screen_width // 4, 110))
             self.pseudo_input.draw(self.screen)
             self.send_request_button.draw(self.screen)
@@ -239,7 +210,6 @@ class FriendsPygame:
                 self.draw_text(req[1], self.font, self.LIGHT_GREY, (self.screen_width // 4 - 50, y), align='left')
                 self.out_buttons[i].draw(self.screen)
 
-            # --- COLONNE DROITE ---
             right_center_x = self.screen_width * 3 // 4
             self.draw_text("Demandes reçues", self.font, self.CYBER_BLUE, (right_center_x, 110))
             for i, req in enumerate(self.incoming_requests):
