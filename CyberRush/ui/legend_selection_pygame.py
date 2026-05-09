@@ -28,7 +28,6 @@ class LegendSelectionPygame:
         if db:
             try:
                 cursor = db.cursor()
-                # On récupère la légende "None" (ID 0) et les légendes débloquées dans player_legends
                 query = """
                     SELECT l.ID_Legend, l.legend_name, l.Image_Data
                     FROM legend l
@@ -38,7 +37,6 @@ class LegendSelectionPygame:
                 cursor.execute(query, (self.user_id,))
                 results = cursor.fetchall()
 
-                # Positionnement en grille pour l'affichage
                 start_x = 150
                 start_y = 150
                 spacing_x = 200
@@ -54,21 +52,18 @@ class LegendSelectionPygame:
                     img_surface = None
                     if img_data:
                         try:
-                            # Transformation des données binaires en image Pygame
                             img_surface = pygame.image.load(io.BytesIO(img_data)).convert_alpha()
                             img_surface = pygame.transform.scale(img_surface, (100, 100))
                         except Exception as e:
                             print(f"Erreur image légende {l_id}: {e}")
 
                     if not img_surface:
-                        # Si pas d'image (ex: ID 0 "None"), on met un carré gris
                         img_surface = pygame.Surface((100, 100))
                         img_surface.fill((100, 100, 100))
 
                     x = start_x + col * spacing_x
                     y = start_y + row * spacing_y
 
-                    # Bouton pour équiper
                     btn = Button(l_name, (x + 50, y + 130), lambda i=l_id: self.select_legend(i), size=(120, 30))
 
                     self.legends.append({
@@ -79,7 +74,7 @@ class LegendSelectionPygame:
                     })
 
                     col += 1
-                    if col > 4: # Retour à la ligne après 5 légendes
+                    if col > 4: 
                         col = 0
                         row += 1
 
@@ -89,7 +84,6 @@ class LegendSelectionPygame:
                 db.close()
 
     def select_legend(self, legend_id):
-        # 1. Créer le thread secret
         def _db_update_legend():
             db = Connect()
             if db:
@@ -107,11 +101,9 @@ class LegendSelectionPygame:
         import threading
         threading.Thread(target=_db_update_legend, daemon=True).start()
         
-        # 2. Retourner IMMÉDIATEMENT au Deck (sans attendre la BDD)
         return self.go_back()
 
     def go_back(self):
-        # On importe votre VRAIE classe de Deck
         from ui.deck_editor_pygame import DeckEditorPygame 
         return DeckEditorPygame(self.game_manager, self.user)
 
@@ -126,10 +118,8 @@ class LegendSelectionPygame:
                     return self.back_button.action()
 
                 for leg in self.legends:
-                    # Si on clique sur le bouton de texte
                     if leg['button'].handle_event(event):
                         return leg['button'].action()
-                    # Si on clique directement sur l'image
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         if leg['rect'].collidepoint(event.pos):
                             return self.select_legend(leg['id'])
@@ -138,8 +128,7 @@ class LegendSelectionPygame:
 
             title = self.font_title.render("SÉLECTION DE LÉGENDE", True, self.CYBER_BLUE)
             self.screen.blit(title, title.get_rect(center=(self.screen_width // 2, 50)))
-
-            # On dessine les images et les boutons
+            
             for leg in self.legends:
                 self.screen.blit(leg['image'], leg['rect'])
                 leg['button'].draw(self.screen)
