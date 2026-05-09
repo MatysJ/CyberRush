@@ -101,26 +101,21 @@ class LoginPygame:
                          if not self.popup.active: self.popup = None
                     continue
 
-                # --- NOUVEAU : GESTION DE LA TOUCHE TAB ---
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
                     active_idx = -1
-                    # On cherche l'index du champ actuellement actif
                     for i, field in enumerate(self.input_fields):
                         if field.active:
                             active_idx = i
-                            field.active = False # On le désactive
+                            field.active = False 
                             break
-                    # On calcule le suivant (et on boucle s'il dépasse la taille)
+
                     next_idx = (active_idx + 1) % len(self.input_fields)
                     self.input_fields[next_idx].active = True
-                    # On met le curseur tout à la fin pour écrire directement
                     self.input_fields[next_idx].cursor_pos = len(self.input_fields[next_idx].text)
-                    continue # On passe directement à l'événement suivant
+                    continue 
 
-                # === NOUVEAU : VALIDATION AVEC ENTRÉE ===
                 if event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER):
                     return self.login_button.action()
-                # ========================================
 
                 self.email_input.handle_event(event)
                 self.password_input.handle_event(event)
