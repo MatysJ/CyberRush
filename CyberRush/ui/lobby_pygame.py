@@ -29,11 +29,9 @@ class LobbyPygame:
         self.font = pygame.font.Font(None, 28)
         self.font_title = pygame.font.Font(None, 60)
 
-        # Le bouton fait 200 de large, on retire donc 100 au centre !
         center_x = (self.screen_width // 2) - 100
         self.back_button = Button("Retour Menu", (self.screen_width // 4, self.screen_height - 60), self.go_back, size=(200, 50))
         
-        # Le bouton fait 250 de large, on le met à -270 du bord droit pour qu'il rentre !
         self.matchmaking_button = Button("Matchmaking Rapide", (self.screen_width - 270, self.screen_height - 60), self.start_matchmaking, size=(250, 60))
         self.popup = None
 
@@ -67,7 +65,6 @@ class LobbyPygame:
         if db:
             try:
                 cursor = db.cursor()
-                # --- MODIFICATION : On ajoute la condition u.Online = 1 ---
                 query = """
                     SELECT u.ID_Users, u.Pseudo, u.Online
                     FROM friends f
@@ -113,12 +110,10 @@ class LobbyPygame:
             try:
                 cursor = db.cursor()
                 
-                # --- NOUVEAU : Récupérer notre Légende équipée ---
                 cursor.execute("SELECT Legend FROM users WHERE ID_Users = %s", (self.user_id,))
                 result = cursor.fetchone()
                 p1_legend = result[0] if result and result[0] is not None else 0
                 
-                # --- CORRECTION : On initialise Player2_Legend à 0 en attendant qu'il rejoigne ---
                 query_session = """
                     INSERT INTO game_sessions (Player1_ID, Player2_ID, Status, Player1_Legend, Player2_Legend) 
                     VALUES (%s, %s, 'Waiting', %s, 0)
@@ -174,19 +169,16 @@ class LobbyPygame:
             try:
                 cursor = db.cursor()
                 
-                # --- NOUVEAU : Récupérer notre Légende équipée ---
                 cursor.execute("SELECT Legend FROM users WHERE ID_Users = %s", (self.user_id,))
                 result = cursor.fetchone()
                 p2_legend = result[0] if result and result[0] is not None else 0
                 
-                # --- MODIFICATION : On ajoute Player2_Legend à l'UPDATE ---
                 cursor.execute("""
                     UPDATE game_sessions 
                     SET Player2_ID = %s, Status = 'InProgress', Player2_Legend = %s 
                     WHERE ID_Game = %s
                 """, (self.user_id, p2_legend, game_id))
                 
-                # On nettoie l'invitation qui ne sert plus à rien
                 cursor.execute("DELETE FROM game_invitations WHERE ID_Game = %s AND Receiver_ID = %s", (game_id, self.user_id))
                 
                 db.commit()
@@ -226,13 +218,11 @@ class LobbyPygame:
         self.screen.blit(surface, rect)
 
     def run(self):
-        # 1. On crée les boutons d'amis UNE SEULE FOIS (la liste ne change pas en boucle)
         self.friend_buttons = []
         y_offset = 150
         for friend in self.friends:
-            # CORRECTION ICI : Les bons numéros de colonnes !
-            f_id = friend[0]    # L'ID est en premier (0)
-            pseudo = friend[1]  # Le Pseudo est en deuxième (1)
+            f_id = friend[0]    
+            pseudo = friend[1] 
             
             btn = Button("Inviter", (self.screen_width // 4 + 150, y_offset), 
                          lambda fid=f_id, fpseudo=pseudo: self.invite_friend(fid, fpseudo), 
@@ -240,23 +230,19 @@ class LobbyPygame:
             self.friend_buttons.append({'pseudo': pseudo, 'button': btn, 'y': y_offset})
             y_offset += 50
 
-        # 2. Préparation du radar pour les invitations
         self.game_buttons = []
         self.last_refresh = 0 
-        last_pending_ids = [] # Mouchard pour savoir si la liste a vraiment changé
+        last_pending_ids = [] 
         
         while True:
             current_time = time.time()
             
-            # --- RAFRAÎCHISSEMENT INTELLIGENT DE LA BDD ---
             if current_time - self.last_refresh > self.refresh_interval:
                 self.pending_games = self.load_pending_games_from_db()
                 self.last_refresh = current_time
                 
-                # On compare la nouvelle liste avec l'ancienne
                 current_pending_ids = [g['ID_Game'] for g in self.pending_games]
                 
-                # On recrée les boutons UNIQUEMENT si quelqu'un a envoyé une nouvelle invitation
                 if current_pending_ids != last_pending_ids:
                     self.game_buttons = []
                     y_offset = 150
@@ -270,9 +256,7 @@ class LobbyPygame:
                         y_offset += 50
                         
                     last_pending_ids = current_pending_ids
-            # -------------------------------------------------------------
-
-            # --- GESTION DES ÉVÉNEMENTS (Clics et clavier) ---
+                    
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return None
                 
@@ -281,27 +265,21 @@ class LobbyPygame:
                          if not self.popup.active: self.popup = None
                     continue 
                 
-                # Boutons principaux du lobby
                 if self.back_button.handle_event(event): return self.back_button.action()
                 if self.matchmaking_button.handle_event(event): return self.matchmaking_button.action()
                 
-                # Clics sur les listes d'amis et d'invitations
                 for fb in self.friend_buttons:
                     if fb['button'].handle_event(event): return fb['button'].action()
                     
                 for gb in self.game_buttons:
                     if gb['button'].handle_event(event): return gb['button'].action()
-            # -------------------------------------------------
-
-            # --- DESSIN DE L'INTERFACE ---
+                        
             self.screen.fill(self.CYBER_GREY)
 
-            # Titre et ligne de séparation centrale
             title_render = self.font_title.render("Lobby Multijoueur", True, self.CYBER_BLUE)
             self.screen.blit(title_render, title_render.get_rect(center=(self.screen_width // 2, 50)))
             pygame.draw.line(self.screen, self.CYBER_BLUE, (self.screen_width // 2, 100), (self.screen_width // 2, self.screen_height - 100), 2)
 
-            # Section de gauche : Amis en ligne
             self.draw_text("Amis en ligne", self.font, self.CYBER_BLUE, (self.screen_width // 4, 110))
             if not self.friend_buttons:
                 self.draw_text("Aucun ami connecté", self.font, self.LIGHT_GREY, (self.screen_width // 4, 150))
@@ -310,7 +288,6 @@ class LobbyPygame:
                     self.draw_text(fb['pseudo'], self.font, self.LIGHT_GREY, (100, fb['y']), align="midleft")
                     fb['button'].draw(self.screen)
 
-            # Section de droite : Invitations reçues
             self.draw_text("Invitations reçues", self.font, self.CYBER_BLUE, (self.screen_width * 3 // 4, 110))
             if not self.game_buttons:
                 self.draw_text("Aucune invitation", self.font, self.LIGHT_GREY, (self.screen_width * 3 // 4, 150))
@@ -319,14 +296,11 @@ class LobbyPygame:
                     self.draw_text(gb['text'], self.font, self.LIGHT_GREY, (self.screen_width // 2 + 50, gb['y']), align="midleft")
                     gb['button'].draw(self.screen)
 
-            # Dessin des boutons globaux
             self.back_button.draw(self.screen)
             self.matchmaking_button.draw(self.screen)
 
-            # Dessin de la popup si elle est active
             if self.popup and self.popup.active:
                 self.popup.draw(self.screen)
 
-            # Mise à jour de l'écran (30 FPS)
             pygame.display.flip()
             self.clock.tick(60)
