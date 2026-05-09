@@ -35,7 +35,6 @@ class ProfilePygame:
         self.update_account_button = Button("Modifier le compte", (center_x, start_y + spacing), self.go_to_update_account, size=(300, 60))
         self.delete_account_button = Button("Supprimer le compte", (center_x, start_y + spacing * 2), self.go_to_delete_account, size=(300, 60))
         
-        # --- MODIFICATION : Bouton Retour centré ---
         self.back_button = Button("Retour", (center_x, self.screen_height - 60), self.go_back, size=(200, 50))
 
     def load_avatar(self):
