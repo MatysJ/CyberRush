@@ -1,5 +1,5 @@
 import pygame
-import threading # <-- NOUVEAU !
+import threading 
 import io
 from db import Connect
 from ui.button import Button
@@ -24,11 +24,7 @@ class DeckEditorPygame:
         self.font_item = pygame.font.Font(None, 24)
         
         self.back_button = Button("Retour", (self.screen_width // 2, self.screen_height - 60), self.go_back, size=(200, 50))
-
-        # === NOUVEAU BOUTON : CHOISIR LÉGENDE ===
-        # Je l'ai mis en haut à droite (screen_width - 250)
         self.btn_legend_menu = Button("Légendes", (self.screen_width - 130, 50), self.open_legend_menu, size=(200, 40), color=(180, 0, 255))
-        # =======================================
         
         self.item_height = 80
         self.list_top_y = 100
@@ -181,9 +177,7 @@ class DeckEditorPygame:
                 
                 if self.back_button.handle_event(event): return self.back_button.action()
 
-                # === NOUVEAU CLIC : LÉGENDE ===
                 if self.btn_legend_menu.handle_event(event): return self.btn_legend_menu.action()
-                # ==============================
                 
                 for i, btn in enumerate(self.coll_buttons):
                     row_top = self.list_top_y + i * self.item_height - self.collection_scroll_y
@@ -227,10 +221,7 @@ class DeckEditorPygame:
 
             self.back_button.draw(self.screen)
 
-            # === NOUVEAU DESSIN : LÉGENDE ===
             self.btn_legend_menu.draw(self.screen)
-            # ================================
-
 
             pygame.display.flip()
             self.clock.tick(60)
