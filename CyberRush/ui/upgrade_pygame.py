@@ -148,7 +148,6 @@ class UpgradePygame:
                     db.close()
 
     def go_back(self):
-        # On met à jour l'or dans la mémoire locale SANS refaire un SELECT lourd
         user_list = list(self.user)
         user_list[9] = self.gold 
         self.user = tuple(user_list)
