@@ -34,11 +34,9 @@ class ShopPygame:
         self.list_top_y = 100
         self.viewable_height = self.list_bottom_y - self.list_top_y
         
-        # --- CHARGEMENT DES DEUX CATÉGORIES ---
         self.units_data = self.load_units_from_db()
         self.legends_data = self.load_legends_from_db()
         
-        # La hauteur totale prend en compte les unités + 1 séparation + les légendes
         self.total_content_height = (len(self.units_data) * self.item_height) + 100 + (len(self.legends_data) * self.item_height)
         
         self.unit_buttons = []
@@ -57,7 +55,6 @@ class ShopPygame:
             self.unit_buttons.append(btn)
             
         self.legend_buttons.clear()
-        # Les légendes commencent après les unités + 100 pixels de séparation
         y_offset_legends = (len(self.units_data) * self.item_height) + 100
         for i, legend in enumerate(self.legends_data):
             y_pos = self.list_top_y + y_offset_legends + (i * self.item_height) - self.scroll_y + 50
@@ -111,7 +108,6 @@ class ShopPygame:
         db = Connect()
         if not db: return legends
         
-        # Dictionnaire des résumés de compétences (ajout de 'None')
         summaries = {
             "Garen": "Passif: Toute les 25 vagues, augmente les HP de 1.",
             "Azir": "Passif : Invoque une unité lvl 2 aléatoire (évolue toutes les 20 vagues).",
@@ -124,7 +120,6 @@ class ShopPygame:
         
         try:
             cursor = db.cursor(dictionary=True)
-            # MODIFICATION ICI : On force IsOwned à 1 si l'ID_Legend est 0.
             query = """
                 SELECT l.*, 
                        CASE 
@@ -150,7 +145,6 @@ class ShopPygame:
                 l_name = row['legend_name']
                 desc = summaries.get(l_name, "Compétence inconnue")
                 
-                # Petit nettoyage visuel pour la boutique
                 display_name = "Garen" if row['ID_Legend'] == 0 else l_name
                 
                 legends.append({
@@ -168,15 +162,13 @@ class ShopPygame:
 
     def buy_unit(self, unit_id, price):
         if self.gold >= price:
-            # 1. CHANGEMENT VISUEL IMMÉDIAT (UI Optimiste)
             self.gold -= price
             for u in self.units_data:
                 if u['id'] == unit_id:
                     u['owned'] += 1
                     break
-            self._build_buttons() # On rafraîchit l'écran tout de suite !
+            self._build_buttons() 
 
-            # 2. ENVOI À LA BDD EN TÂCHE DE FOND
             def _db_buy():
                 db = Connect()
                 if db:
@@ -202,25 +194,21 @@ class ShopPygame:
 
     def buy_legend(self, legend_id, price=5000):
         if self.gold >= price:
-            # 1. CHANGEMENT VISUEL IMMÉDIAT (UI Optimiste)
             self.gold -= price
             for l in self.legends_data:
                 if l['id'] == legend_id:
                     l['owned'] = True
                     break
-            self._build_buttons() # Rafraîchissement instantané du bouton en gris "Possédé" !
+            self._build_buttons()
             print(f"Légende {legend_id} achetée avec succès ! Or restant : {self.gold}")
 
-            # 2. ENVOI À LA BDD EN TÂCHE DE FOND
             def _db_buy_legend():
                 db = Connect()
                 if db:
                     try:
                         cursor = db.cursor()
-                        # Sécurité BDD : On vérifie qu'on ne l'a pas déjà achetée
                         cursor.execute("SELECT * FROM player_legends WHERE ID_Users = %s AND ID_Legend = %s", (self.user_id, legend_id))
                         if not cursor.fetchone():
-                            # Sauvegarde des nouvelles données
                             cursor.execute("UPDATE users SET Gold = %s WHERE ID_Users = %s", (self.gold, self.user_id))
                             cursor.execute("INSERT INTO player_legends (ID_Users, ID_Legend) VALUES (%s, %s)", (self.user_id, legend_id))
                             db.commit()
@@ -237,7 +225,6 @@ class ShopPygame:
             print("Pas assez d'or pour acheter cette Légende.")
 
     def go_back(self):
-        # On met à jour l'or dans la mémoire locale SANS refaire un SELECT lourd
         user_list = list(self.user)
         user_list[9] = self.gold 
         self.user = tuple(user_list)
@@ -292,13 +279,11 @@ class ShopPygame:
                         if self.back_button.handle_event(event):
                             return self.back_button.action()
 
-                        # Clics sur les boutons d'unités
                         for i, btn in enumerate(self.unit_buttons):
                             item_y_start = self.list_top_y + (i * self.item_height) - self.scroll_y
                             if item_y_start + self.item_height > self.list_top_y and item_y_start < self.list_bottom_y:
                                 if btn.handle_event(event): btn.action()
                                 
-                        # Clics sur les boutons de légendes
                         y_offset_legends = (len(self.units_data) * self.item_height) + 100
                         for i, btn in enumerate(self.legend_buttons):
                             item_y_start = self.list_top_y + y_offset_legends + (i * self.item_height) - self.scroll_y
@@ -320,9 +305,6 @@ class ShopPygame:
 
             self.screen.fill(self.CYBER_GREY)
 
-            # =========================================================
-            # DESSIN DES UNITÉS
-            # =========================================================
             for i, unit in enumerate(self.units_data):
                 current_y = self.list_top_y + (i * self.item_height) - self.scroll_y
                 
@@ -347,26 +329,19 @@ class ShopPygame:
                     if i < len(self.unit_buttons):
                         self.unit_buttons[i].draw(self.screen)
 
-            # =========================================================
-            # SÉPARATEUR
-            # =========================================================
             separator_y = self.list_top_y + (len(self.units_data) * self.item_height) - self.scroll_y + 50
             if separator_y > self.list_top_y and separator_y < self.list_bottom_y:
                 pygame.draw.line(self.screen, self.CYBER_BLUE, (50, separator_y), (self.screen_width - 50, separator_y), 3)
                 sep_title = self.font_title.render("LES LÉGENDES", True, (180, 0, 255))
-                # MODIFICATION : On place le texte juste au-dessus de la ligne (-10 pixels)
                 self.screen.blit(sep_title, sep_title.get_rect(midbottom=(self.screen_width // 2, separator_y - 10)))
 
-            # =========================================================
-            # DESSIN DES LÉGENDES
-            # =========================================================
             y_offset_legends = (len(self.units_data) * self.item_height) + 100
             for i, legend in enumerate(self.legends_data):
                 current_y = self.list_top_y + y_offset_legends + (i * self.item_height) - self.scroll_y
                 
                 if current_y + self.item_height > self.list_top_y and current_y < self.list_bottom_y:
                     card_rect = pygame.Rect(50, current_y, self.screen_width - 100, self.item_height - 10)
-                    pygame.draw.rect(self.screen, (30, 20, 40), card_rect, border_radius=10) # Fond légèrement violacé
+                    pygame.draw.rect(self.screen, (30, 20, 40), card_rect, border_radius=10) 
                     
                     if legend['image']:
                         self.screen.blit(legend['image'], (60, current_y + 10))
@@ -382,7 +357,6 @@ class ShopPygame:
                     if i < len(self.legend_buttons):
                         self.legend_buttons[i].draw(self.screen)
 
-            # --- MASQUES DES MENUS (HAUT ET BAS) ---
             pygame.draw.rect(self.screen, self.CYBER_GREY, (0, 0, self.screen_width, self.list_top_y))
             pygame.draw.rect(self.screen, self.CYBER_GREY, (0, self.list_bottom_y, self.screen_width, 150))
             
@@ -395,7 +369,6 @@ class ShopPygame:
 
             self.back_button.draw(self.screen)
 
-            # --- DESSIN DE LA BARRE DE SCROLL INTERACTIVE ---
             if max_scroll > 0:
                 pygame.draw.rect(self.screen, (30, 30, 30), (scrollbar_x, self.list_top_y, 10, self.viewable_height), border_radius=5)
                 thumb_color = (0, 200, 255) if getattr(self, 'dragging_scroll', False) else self.CYBER_BLUE
