@@ -6,7 +6,6 @@ from ui.button import Button
 from ui.game_board_pygame import GameBoardPygame
 
 class WaitingRoomPygame:
-    # NOUVEAU : On ajoute is_host pour savoir si ce joueur a créé l'invitation
     def __init__(self, game_manager, user, opponent_pseudo, id_game, is_host=False):
         self.game_manager = game_manager
         self.user = user
@@ -33,19 +32,16 @@ class WaitingRoomPygame:
         self.LIGHT_GREY = (200, 200, 200)
         self.font = pygame.font.Font(None, 36)
 
-        # On définit la largeur une fois pour toutes
         largeur_bouton = 200
         centre_x = self.screen_width // 2
 
-        # Bouton d'annulation placé à Y = 380 (sous le futur bouton lancer)
         self.cancel_button = Button("Annuler", (centre_x, 380), 
                                     self.cancel_game, size=(largeur_bouton, 50), color=(200, 50, 50))
 
-        # Bouton de lancement (uniquement pour l'Hôte, et seulement quand le joueur 2 est là)
         self.launch_button = None
 
         self.last_db_check = time.time()
-        self.check_interval = 2.0 # On vérifie la BDD toutes les 2 secondes
+        self.check_interval = 2.0 
 
     def _get_session_status(self):
         db = Connect()
@@ -81,28 +77,22 @@ class WaitingRoomPygame:
         status = self._get_session_status()
 
         if not status:
-            # La session n'existe plus (l'hôte l'a annulée)
             if not self.is_host and self.game_ready:
                 return self.cancel_game()
             return None
 
-        # Si le statut passe en "InProgress", on lance le jeu pour tout le monde !
         if status == 'InProgress':
             return self.start_game()
 
-        # L'hôte vérifie si l'invitation existe toujours
         invite_exists = self._check_invite_exists()
 
         if not invite_exists:
-            # L'invitation a disparu : l'ami l'a acceptée !
             self.game_ready = True
 
             if self.is_host and not self.launch_button:
                 largeur_bouton = 200
-                # LA CORRECTION EST LÀ : on donne le centre exact, comme pour Annuler !
                 centre_x = self.screen_width // 2
                 
-                # Bouton de lancement placé à Y = 300 (juste sous le texte qui est à 200)
                 self.launch_button = Button("Lancer la partie", (centre_x, 300), 
                                             self.launch_game, size=(largeur_bouton, 50))
         else:
@@ -142,7 +132,6 @@ class WaitingRoomPygame:
 
     def start_game(self):
         from ui.loading_screen_pygame import LoadingScreenPygame
-        # NOUVEAU : On transmet self.is_host à l'écran de chargement !
         return LoadingScreenPygame(self.game_manager, self.user, self.opponent_pseudo, self.id_game, self.is_host)
             
         game_data = {'game_id': self.id_game, 'opponent_pseudo': self.opponent_pseudo}
@@ -161,37 +150,30 @@ class WaitingRoomPygame:
         while True:
             current_time = time.time()
             
-            # 1. Vérification de la base de données toutes les X secondes
             if current_time - self.last_db_check > self.check_interval:
                 next_state = self.check_game_status()
                 self.last_db_check = current_time
                 if next_state:
-                    return next_state # Passe au GameBoardPygame ou au Lobby
+                    return next_state 
 
-            # 2. Gestion des événements Pygame
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return self.cancel_game()
 
-                # Sécurité réseau : retour forcé au lobby (ex: déconnexion adverse)
                 if event.type == pygame.USEREVENT and hasattr(event, "action") and event.action == "force_lobby":
                     from ui.lobby_pygame import LobbyPygame
                     if self.network_client:
                         self.network_client.lobby_frame = None
                     return LobbyPygame(self.game_manager, self.user)
 
-                # Clic sur le bouton Annuler
                 if self.cancel_button and self.cancel_button.handle_event(event):
                     return self.cancel_button.action()
-
-                # Clic sur le bouton Lancer (visible uniquement par l'hôte quand l'invité est là)
+                    
                 if self.launch_button and self.launch_button.handle_event(event):
                     self.launch_button.action()
-
-            # 3. Affichage visuel (Dessin)
+                    
             self.screen.fill(self.CYBER_GREY)
 
-            # Texte dynamique selon l'état de la session et notre rôle
             if self.game_ready:
                 if self.is_host:
                     self.draw_text(f"{self.opponent_pseudo} a rejoint ! Prêt à lancer.", self.font, self.CYBER_BLUE, (self.screen_width // 2, 200))
@@ -200,12 +182,10 @@ class WaitingRoomPygame:
             else:
                  self.draw_text(f"En attente de {self.opponent_pseudo}...", self.font, self.LIGHT_GREY, (self.screen_width // 2, 200))
 
-            # Dessin des boutons
             if self.cancel_button:
                 self.cancel_button.draw(self.screen)
             if self.launch_button:
                 self.launch_button.draw(self.screen)
 
-            # Rafraîchissement de l'écran
             pygame.display.flip()
             self.clock.tick(60)
