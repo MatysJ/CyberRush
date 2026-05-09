@@ -30,7 +30,7 @@ class MainMenuPygame:
         self.avatar_image = None
 
         if self.user:
-            self.refresh_user_data() # NOUVEAU : On charge les données 1 seule fois !
+            self.refresh_user_data() 
             self.load_avatar()
 
         self.setup_ui()
@@ -84,7 +84,6 @@ class MainMenuPygame:
     def refresh_user_data(self):
         db = Connect()
         
-        # Valeurs par défaut au cas où
         self.display_gold = self.user[9]
         self.display_level = self.user[6] if self.user[6] else 1
         self.display_xp = self.user[10] if self.user[10] else 0
@@ -97,7 +96,6 @@ class MainMenuPygame:
                 if res:
                     self.display_gold, self.display_level, self.display_xp = res
                 
-                # Gestion du Level UP
                 xp_required = int(100 * (1.25 ** (self.display_level - 1)))
                 leveled_up = False
                 
@@ -123,7 +121,6 @@ class MainMenuPygame:
             pseudo = self.user[3] 
             email = self.user[1]
             
-            # On utilise les variables pré-calculées
             gold = getattr(self, 'display_gold', 0)
             level = getattr(self, 'display_level', 1)
             xp = getattr(self, 'display_xp', 0)
