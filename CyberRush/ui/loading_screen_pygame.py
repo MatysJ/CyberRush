@@ -3,7 +3,7 @@ import time
 import json
 from db import Connect
 from ui.game_board_pygame import GameBoardPygame
-from ui.button import Button # NOUVEAU : Pour le bouton de secours
+from ui.button import Button 
 
 class LoadingScreenPygame:
     def __init__(self, game_manager, user, opponent_pseudo, id_game, is_host=False):
@@ -30,13 +30,10 @@ class LoadingScreenPygame:
         self.last_db_check = 0
         self.check_interval = 0.5
         
-        # --- NOUVEAUX DRAPEAUX DE PRÉCHARGEMENT ---
-        self.game_preloaded = False    # Est-ce que les assets sont chargés ?
-        self.handshake_started = False # Est-ce qu'on a commencé à parler à la BDD ?
-        self.preloaded_board = None    # Stockera l'instance du jeu
-        # ------------------------------------------
-
-        # NOUVEAU : Bouton de secours anti-softlock
+        self.game_preloaded = False   
+        self.handshake_started = False 
+        self.preloaded_board = None    
+        
         self.abort_button = Button("Quitter", (self.screen_width - 80, 40), self.abort_loading, size=(120, 40), color=(200, 50, 50))
 
     def _set_player_ready(self):
@@ -65,9 +62,6 @@ class LoadingScreenPygame:
         try:
             cursor = db.cursor()
             
-            # ==========================================
-            # 1. INITIALISATION DE LA GRILLE (player_grids)
-            # ==========================================
             print("Étape 1 : Vérification de la grille...")
             cursor.execute("SELECT ID_Grid FROM player_grids WHERE ID_Game = %s AND ID_Users = %s", (self.id_game, self.user_id))
             if cursor.fetchone():
@@ -80,33 +74,28 @@ class LoadingScreenPygame:
                     "INSERT INTO player_grids (ID_Game, ID_Users, Grid_State) VALUES (%s, %s, %s)", 
                     (self.id_game, self.user_id, grid_json)
                 )
-                print("✅ SUCCÈS : Grille insérée !")
+                print("SUCCÈS : Grille insérée !")
 
-            # ==========================================
-            # 2. INITIALISATION DES ENNEMIS (game_enemies)
-            # ==========================================
             print("Étape 3 : Vérification de la table game_enemies...")
             cursor.execute("SELECT ID FROM game_enemies WHERE ID_Game = %s AND ID_Player = %s", (self.id_game, self.user_id))
             if cursor.fetchone():
-                print("⚠️ ATTENTION : La ligne game_enemies existe DÉJÀ en BDD.")
+                print("ATTENTION : La ligne game_enemies existe DÉJÀ en BDD.")
             else:
                 print("Étape 4 : Création de la ligne game_enemies...")
                 cursor.execute(
                     "INSERT INTO game_enemies (ID_Game, ID_Player, Add_Enemies) VALUES (%s, %s, NULL)", 
                     (self.id_game, self.user_id)
                 )
-                print("✅ SUCCÈS : Ligne game_enemies insérée !")
+                print("SUCCÈS : Ligne game_enemies insérée !")
 
-            # On valide toutes les insertions d'un coup
             db.commit()
                 
         except Exception as e:
-            print(f"❌ ERREUR SQL CRITIQUE : {e}")
+            print(f"ERREUR SQL CRITIQUE : {e}")
         finally:
             try: cursor.close()
             except: pass
             db.close()
-            print("=== [DEBUG HANDSHAKE] FIN INIT BDD JOUEUR ===\n")
 
     def _check_opponent_ready(self):
         db = Connect()
@@ -137,18 +126,14 @@ class LoadingScreenPygame:
         if db:
             try:
                 cursor = db.cursor()
-                # 1. Déterminer notre colonne de PV
                 cursor.execute("SELECT Player1_ID FROM game_sessions WHERE ID_Game = %s", (self.id_game,))
                 session = cursor.fetchone()
                 if session:
                     is_player1 = (self.user_id == session[0])
                     my_hp_col = "Player1_HP" if is_player1 else "Player2_HP"
                     
-                    # 2. Mettre nos PV à 0
                     cursor.execute(f"UPDATE game_sessions SET {my_hp_col} = 0 WHERE ID_Game = %s", (self.id_game,))
                 
-                # 3. L'ASTUCE : On s'annonce "Prêt" pour débloquer l'adversaire !
-                # Il va lancer la partie, voir nos 0 PV et gagner instantanément.
                 cursor.execute("SELECT * FROM game_loading_ready WHERE game_id = %s AND user_id = %s", (self.id_game, self.user_id))
                 if not cursor.fetchone():
                     cursor.execute("INSERT INTO game_loading_ready (game_id, user_id) VALUES (%s, %s)", (self.id_game, self.user_id))
@@ -161,8 +146,6 @@ class LoadingScreenPygame:
                 except: pass
                 db.close()
         
-        # Retour sécurisé au Lobby
-        # (Adaptez l'import si le nom de votre fichier lobby est différent)
         from ui.lobby_pygame import LobbyPygame
         return LobbyPygame(self.game_manager, self.user)
 
@@ -178,28 +161,21 @@ class LoadingScreenPygame:
                     import sys
                     sys.exit()
 
-                # NOUVEAU : Écoute du bouton d'annulation
                 if self.abort_button.handle_event(event):
                     return self.abort_button.action()
 
             self.screen.fill(self.CYBER_GREY)
 
-            # =========================================================
-            # ÉTAPE 1 (NOUVEL ORDRE) : CRÉATION DE LA GRILLE BDD D'ABORD !
-            # =========================================================
             if not grid_initialized:
-                print(">> PASSAGE ÉTAPE 1 : Création de la grille...")
+                print("PASSAGE ÉTAPE 1 : Création de la grille...")
                 self._init_player_grid()
                 grid_initialized = True
 
-            # =========================================================
-            # ÉTAPE 2 : LE PRÉCHARGEMENT LOCAL DU PLATEAU
-            # =========================================================
             if not self.game_preloaded:
                 self.draw_text("CHARGEMENT DES FICHIERS...", self.font_large, self.CYBER_BLUE, (self.screen_width // 2, self.screen_height // 2 - 50))
                 pygame.display.flip()
                 
-                print(">> PASSAGE ÉTAPE 2 : Chargement du plateau de jeu...")
+                print("PASSAGE ÉTAPE 2 : Chargement du plateau de jeu...")
                 game_data = {'game_id': self.id_game, 'opponent_pseudo': self.opponent_pseudo}
                 # Le plateau est créé ICI, il va donc trouver la grille qu'on vient de créer à l'étape 1 !
                 self.preloaded_board = GameBoardPygame(self.game_manager, self.user, self.network_client, game_data)
@@ -207,18 +183,12 @@ class LoadingScreenPygame:
                 self.game_preloaded = True
                 continue 
 
-            # =========================================================
-            # ÉTAPE 3 : DÉBUT DU HANDSHAKE
-            # =========================================================
             if not self.handshake_started:
-                print(">> PASSAGE ÉTAPE 3 : Envoi du signal 'Prêt'...")
+                print("PASSAGE ÉTAPE 3 : Envoi du signal 'Prêt'...")
                 if self.is_host:
                     self._set_player_ready() 
                 self.handshake_started = True
 
-            # =========================================================
-            # ÉTAPE 4 : ATTENTE ET LANCEMENT
-            # =========================================================
             self.draw_text("PRÊT !", self.font_large, (50, 255, 50), (self.screen_width // 2, self.screen_height // 2 - 50))
             
             if current_time - self.last_db_check > self.check_interval:
@@ -227,10 +197,9 @@ class LoadingScreenPygame:
                     if not self.is_host:
                         self._set_player_ready()
                         pygame.time.wait(500) 
-                    print(">> PASSAGE ÉTAPE 4 : Adversaire prêt, lancement !")
+                    print("PASSAGE ÉTAPE 4 : Adversaire prêt, lancement !")
                     return self.preloaded_board
                 
-            # NOUVEAU : Dessin du bouton d'annulation par-dessus tout
             self.abort_button.draw(self.screen)
 
             pygame.display.flip()
