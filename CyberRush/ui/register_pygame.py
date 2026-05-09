@@ -147,7 +147,6 @@ class RegisterPygame:
                         if not self.popup.active: self.popup = None
                     continue
 
-                # --- NOUVEAU : GESTION DE LA TOUCHE TAB ---
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
                     active_idx = -1
                     for i, field in enumerate(self.input_fields):
@@ -160,10 +159,8 @@ class RegisterPygame:
                     self.input_fields[next_idx].cursor_pos = len(self.input_fields[next_idx].text)
                     continue
 
-                # === NOUVEAU : VALIDATION AVEC ENTRÉE ===
                 if event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER):
                     return self.register_button.action()
-                # ========================================
 
                 for field in self.input_fields: field.handle_event(event)
                 
